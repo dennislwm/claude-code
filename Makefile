@@ -23,4 +23,4 @@ status:
 	@source ./make.sh && show_status
 
 test:
-	@bats tests/
+	@source ./make.sh && check_bats && bats tests/

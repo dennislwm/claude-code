@@ -45,6 +45,38 @@ teardown() {
   [[ "$output" == *"bats not installed"* ]]
 }
 
+# --- check_uvx ---
+
+@test "check_uvx: passes and prints version when uvx is on PATH" {
+  run check_uvx
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[OK]"* ]]
+  [[ "$output" == *"uvx"* ]]
+}
+
+@test "check_uvx: warns but exits 0 when uvx is absent from PATH" {
+  PATH="$FAKE_BIN" run check_uvx
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[WARN]"* ]]
+  [[ "$output" == *"uvx not installed"* ]]
+}
+
+# --- check_ledger ---
+
+@test "check_ledger: passes and prints version when ledger is on PATH" {
+  run check_ledger
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[OK]"* ]]
+  [[ "$output" == *"ledger"* ]]
+}
+
+@test "check_ledger: warns but exits 0 when ledger is absent from PATH" {
+  PATH="$FAKE_BIN" run check_ledger
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[WARN]"* ]]
+  [[ "$output" == *"ledger not installed"* ]]
+}
+
 # --- check_link ---
 
 @test "check_link: reports not set up when neither symlink exists" {

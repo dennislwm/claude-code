@@ -1,11 +1,16 @@
 function check_gh {
   command -v gh > /dev/null 2>&1 || { echo "[ERROR][$FUNCNAME]: gh CLI not installed."; return 1; }
-  echo "[OK]   gh CLI found ($(gh --version | head -1))"
+  echo "[OK]   gh CLI found ($(gh --version 2>&1 | head -1))"
 }
 
 function check_bats {
   command -v bats > /dev/null 2>&1 || { echo "[WARN][$FUNCNAME]: bats not installed. Tests will not run."; return 0; }
-  echo "[OK]   bats found ($(bats --version))"
+  echo "[OK]   bats found ($(bats --version 2>&1 | head -1))"
+}
+
+function check_uvx {
+  command -v uvx > /dev/null 2>&1 || { echo "[WARN][$FUNCNAME]: uvx not installed. /showboat skill will not work."; return 0; }
+  echo "[OK]   uvx found ($(uvx --version 2>&1 | head -1))"
 }
 
 function check_ledger {
@@ -66,6 +71,7 @@ function show_status {
   echo "=== Status ==="
   check_gh || true
   check_bats || true
+  check_uvx || true
   check_ledger || true
   check_link
   echo "=============="
