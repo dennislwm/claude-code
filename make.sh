@@ -8,6 +8,11 @@ function check_bats {
   echo "[OK]   bats found ($(bats --version))"
 }
 
+function check_ledger {
+  command -v ledger > /dev/null 2>&1 || { echo "[WARN][$FUNCNAME]: ledger not installed. /ledger skill will not work."; return 0; }
+  echo "[OK]   ledger found ($(ledger --version 2>&1 | head -1))"
+}
+
 function check_link {
   for subdir in commands agents; do
     local dest="$HOME/.claude/$subdir"
@@ -61,6 +66,7 @@ function show_status {
   echo "=== Status ==="
   check_gh || true
   check_bats || true
+  check_ledger || true
   check_link
   echo "=============="
 }

@@ -20,3 +20,9 @@ All `gh run` skills inherit the `--repo` flag:
 | `/gh-run-view` | View a summary or logs of a workflow run |
 
 Additional `gh run` skills (`cancel`, `delete`, `download`, `list`, `rerun`, `watch`) are planned.
+
+## ledger Skills
+
+| Skill | Description |
+|---|---|
+| `/ledger` | Run ledger CLI reports for balance, register, and spending analysis |
