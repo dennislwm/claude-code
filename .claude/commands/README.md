@@ -26,3 +26,9 @@ Additional `gh run` skills (`cancel`, `delete`, `download`, `list`, `rerun`, `wa
 | Skill | Description |
 |---|---|
 | `/ledger` | Run ledger CLI reports for balance, register, and spending analysis |
+
+## Obsidian Skills
+
+| Skill | Description |
+|---|---|
+| `/obsidian` | Translate natural language requests into Obsidian CLI commands and run them |

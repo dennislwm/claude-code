@@ -18,6 +18,30 @@ function check_ledger {
   echo "[OK]   ledger found ($(ledger --version 2>&1 | head -1))"
 }
 
+function check_obsidian {
+  local obsidian_mac="/Applications/Obsidian.app/Contents/MacOS"
+  if command -v obsidian > /dev/null 2>&1; then
+    echo "[OK]   obsidian found ($(obsidian version 2>&1 | head -1))"
+  elif [ -d "$obsidian_mac" ]; then
+    echo "[WARN][$FUNCNAME]: obsidian not in PATH. /obsidian skill will not work."
+  else
+    echo "[WARN][$FUNCNAME]: obsidian not installed. /obsidian skill will not work."
+  fi
+}
+
+function setup_obsidian {
+  local obsidian_mac="/Applications/Obsidian.app/Contents/MacOS"
+  if command -v obsidian > /dev/null 2>&1; then
+    echo "[SKIP] obsidian already in PATH"
+  elif [ -d "$obsidian_mac" ]; then
+    echo "export PATH=\"\$PATH:$obsidian_mac\"" >> ~/.bash_profile
+    export PATH="$PATH:$obsidian_mac"
+    echo "[OK]   obsidian added to PATH via ~/.bash_profile"
+  else
+    echo "[WARN][$FUNCNAME]: obsidian not installed. /obsidian skill will not work."
+  fi
+}
+
 function check_link {
   for subdir in commands agents; do
     local dest="$HOME/.claude/$subdir"
@@ -73,6 +97,7 @@ function show_status {
   check_bats || true
   check_uvx || true
   check_ledger || true
+  check_obsidian || true
   check_link
   echo "=============="
 }
@@ -82,6 +107,7 @@ function setup_commands {
   echo "=== Claude Code Skills Setup ==="
   check_gh
   check_bats
+  setup_obsidian
   link_item "$base_dir/.claude/commands" "$HOME/.claude/commands"
   link_item "$base_dir/.claude/agents" "$HOME/.claude/agents"
   echo "================================"

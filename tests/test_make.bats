@@ -77,6 +77,22 @@ teardown() {
   [[ "$output" == *"ledger not installed"* ]]
 }
 
+# --- check_obsidian ---
+
+@test "check_obsidian: passes and prints version when obsidian is on PATH" {
+  run check_obsidian
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[OK]"* ]]
+  [[ "$output" == *"obsidian"* ]]
+}
+
+@test "check_obsidian: warns but exits 0 when obsidian is absent from PATH" {
+  PATH="$FAKE_BIN" run check_obsidian
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[WARN]"* ]]
+  [[ "$output" == *"obsidian not installed"* ]]
+}
+
 # --- check_link ---
 
 @test "check_link: reports not set up when neither symlink exists" {
