@@ -18,10 +18,70 @@ function check_ledger {
   echo "[OK]   ledger found ($(ledger --version 2>&1 | head -1))"
 }
 
+function check_joplin {
+  local go_bin="$HOME/go/bin"
+  if ! command -v joplin-butler > /dev/null 2>&1; then
+    if [ -f "$go_bin/joplin-butler" ]; then
+      echo "[WARN][$FUNCNAME]: joplin-butler not in PATH. Run 'make setup' to add $go_bin to PATH."
+    else
+      echo "[WARN][$FUNCNAME]: joplin-butler not installed. /joplin skill will not work."
+    fi
+    return 0
+  fi
+  echo "[OK]   joplin-butler found ($(joplin-butler --version 2>&1 | head -1))"
+  if [ -z "${JOPLIN_TOKEN:-}" ]; then
+    echo "[WARN][$FUNCNAME]: JOPLIN_TOKEN not set. Run 'make setup' or export it manually."
+    return 0
+  fi
+  local port="${JOPLIN_PORT:-41184}"
+  local ping_result
+  ping_result=$(curl -s --max-time 2 "http://localhost:${port}/ping" 2>/dev/null)
+  if [ "$ping_result" = "JoplinClipperServer" ]; then
+    echo "[OK]   Joplin Web Clipper reachable on port ${port}"
+  else
+    echo "[WARN][$FUNCNAME]: Joplin Web Clipper not reachable on port ${port}. Ensure Joplin Desktop is running with Web Clipper enabled."
+  fi
+}
+
+function setup_joplin {
+  local go_bin="$HOME/go/bin"
+  if command -v joplin-butler > /dev/null 2>&1; then
+    echo "[SKIP] joplin-butler already in PATH"
+  elif [ -f "$go_bin/joplin-butler" ]; then
+    echo "export PATH=\"\$PATH:$go_bin\"" >> ~/.bash_profile
+    export PATH="$PATH:$go_bin"
+    echo "[OK]   joplin-butler added to PATH via ~/.bash_profile"
+  else
+    echo "[WARN][$FUNCNAME]: joplin-butler not installed. Install via: go install github.com/Garoth/joplin-butler@latest"
+    return 0
+  fi
+  check_joplin || true
+  if ! command -v joplin-butler > /dev/null 2>&1; then
+    return 0
+  fi
+  if [ -z "${JOPLIN_TOKEN:-}" ]; then
+    echo "[INFO] JOPLIN_TOKEN not set."
+    echo "       Find your token in Joplin Desktop: Settings > Web Clipper Options."
+    read -r -p "       Paste your Joplin token (leave blank to skip): " input_token
+    if [ -n "$input_token" ]; then
+      echo "export JOPLIN_TOKEN=\"$input_token\"" >> ~/.bash_profile
+      export JOPLIN_TOKEN="$input_token"
+      echo "[OK]   JOPLIN_TOKEN saved to ~/.bash_profile"
+    else
+      echo "[SKIP] JOPLIN_TOKEN not set."
+    fi
+  else
+    echo "[SKIP] JOPLIN_TOKEN already set"
+  fi
+}
+
 function check_obsidian {
   local obsidian_mac="/Applications/Obsidian.app/Contents/MacOS"
+  local plist="/Applications/Obsidian.app/Contents/Info.plist"
   if command -v obsidian > /dev/null 2>&1; then
-    echo "[OK]   obsidian found ($(obsidian version 2>&1 | head -1))"
+    local version
+    version=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "$plist" 2>/dev/null || echo "unknown")
+    echo "[OK]   obsidian found (v${version})"
   elif [ -d "$obsidian_mac" ]; then
     echo "[WARN][$FUNCNAME]: obsidian not in PATH. /obsidian skill will not work."
   else
@@ -97,6 +157,7 @@ function show_status {
   check_bats || true
   check_uvx || true
   check_ledger || true
+  check_joplin || true
   check_obsidian || true
   check_link
   echo "=============="
@@ -107,6 +168,7 @@ function setup_commands {
   echo "=== Claude Code Skills Setup ==="
   check_gh
   check_bats
+  setup_joplin
   setup_obsidian
   link_item "$base_dir/.claude/commands" "$HOME/.claude/commands"
   link_item "$base_dir/.claude/agents" "$HOME/.claude/agents"

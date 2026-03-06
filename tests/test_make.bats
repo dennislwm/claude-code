@@ -77,6 +77,42 @@ teardown() {
   [[ "$output" == *"ledger not installed"* ]]
 }
 
+# --- check_joplin ---
+
+@test "check_joplin: passes and prints version when joplin-butler is on PATH" {
+  run check_joplin
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[OK]"* ]]
+  [[ "$output" == *"joplin"* ]]
+}
+
+@test "check_joplin: warns but exits 0 when joplin-butler is absent from PATH" {
+  PATH="$FAKE_BIN" run check_joplin
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[WARN]"* ]]
+  [[ "$output" == *"joplin-butler not installed"* ]]
+}
+
+@test "check_joplin: warns but exits 0 when joplin-butler found but JOPLIN_TOKEN is unset" {
+  # Create a fake joplin-butler stub
+  printf '#!/bin/sh\necho "joplin-butler 0.0.0"' > "$FAKE_BIN/joplin-butler"
+  chmod +x "$FAKE_BIN/joplin-butler"
+  PATH="$FAKE_BIN" JOPLIN_TOKEN="" run check_joplin
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[WARN]"* ]]
+  [[ "$output" == *"JOPLIN_TOKEN not set"* ]]
+}
+
+@test "check_joplin: warns but exits 0 when token set but Web Clipper not reachable" {
+  # Create a fake joplin-butler stub
+  printf '#!/bin/sh\necho "joplin-butler 0.0.0"' > "$FAKE_BIN/joplin-butler"
+  chmod +x "$FAKE_BIN/joplin-butler"
+  PATH="$FAKE_BIN" JOPLIN_TOKEN="testtoken" JOPLIN_PORT="1" run check_joplin
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[WARN]"* ]]
+  [[ "$output" == *"not reachable"* ]]
+}
+
 # --- check_obsidian ---
 
 @test "check_obsidian: passes and prints version when obsidian is on PATH" {
@@ -90,7 +126,7 @@ teardown() {
   PATH="$FAKE_BIN" run check_obsidian
   [ "$status" -eq 0 ]
   [[ "$output" == *"[WARN]"* ]]
-  [[ "$output" == *"obsidian not installed"* ]]
+  [[ "$output" == *"obsidian not in PATH"* ]]
 }
 
 # --- check_link ---
