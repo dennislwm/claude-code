@@ -1,13 +1,15 @@
 ---
 description: Translate natural language requests into Obsidian CLI commands and run them
-allowed-tools: Bash
+allowed-tools: Bash, Read, Edit
 ---
 
 Use the Obsidian CLI to answer `$ARGUMENTS`.
 
-## Step 1: Discover available commands
+## Step 1: Discover available commands (conditional)
 
-Run `obsidian --help`. If that fails, try `/Applications/Obsidian.app/Contents/MacOS/Obsidian --help`.
+**Skip this step if `$ARGUMENTS` maps to a command in the Command Reference table below.**
+
+Only run `obsidian --help` when `$ARGUMENTS` contains an unknown command not in the reference table, or when a CLI call returns an error. If `obsidian --help` fails, try `/Applications/Obsidian.app/Contents/MacOS/Obsidian --help`.
 
 If both fail, check:
 1. Obsidian is running (CLI requires it).
@@ -25,7 +27,7 @@ If both fail, check:
 
 **If `$ARGUMENTS` is empty**, run `obsidian daily`.
 
-**Write/destructive commands** (require confirmation): `create`, `daily` (new note only), `daily:append`, `daily:prepend`, `append`, `move`, `properties:set`, `properties:remove`, `delete`, `plugin:enable`, `plugin:disable`, `plugin:reload`, `eval`, any command with `--overwrite`.
+**Write/destructive commands** (require confirmation): `create`, `daily` (new note only), `daily:append`, `daily:prepend`, `append`, `move`, `properties:set`, `properties:remove`, `delete`, `plugin:enable`, `plugin:disable`, `plugin:reload`, `eval`, any command with `--overwrite`, and any **replace/update** operation using `Read` + `Edit`.
 
 ## Command Reference
 
@@ -46,6 +48,25 @@ If both fail, check:
 | `read file=<name>` | Read a note's content |
 
 **Useful flags:** `vault=<name>`, `format=json|tsv|csv|md`, `total`, `open`
+
+## Replace/update content in a note
+
+Use this path when `$ARGUMENTS` requires replacing or modifying an existing line (not just appending). Treat as a write operation — state the exact change and confirm before executing.
+
+1. **Resolve vault path:** parse `~/Library/Application Support/obsidian/obsidian.json` with Python to extract the vault path:
+   ```bash
+   python3 -c "
+   import json, sys
+   d = json.load(open(sys.argv[1]))
+   for v in d.get('vaults', {}).values():
+       print(v.get('path', ''))
+   " ~/Library/Application\ Support/obsidian/obsidian.json
+   ```
+   If multiple vaults are returned, match on the `vault=<name>` argument or ask the user to clarify.
+
+2. **Construct note path:** use `obsidian files` or `obsidian daily:read` to identify the relative note path, then join with the vault path. Always quote paths (they may contain spaces).
+
+3. **Edit:** use the `Read` tool to load current content, then the `Edit` tool to replace the target line. Confirm the exact change with the user before executing.
 
 ## After running
 
