@@ -1,5 +1,5 @@
 ---
-name: cost-efficiency-reviewer
+name: card-grader
 description: Use this agent when you need to assess card condition for profit maximization and mitigate risk.
 color: red
 ---

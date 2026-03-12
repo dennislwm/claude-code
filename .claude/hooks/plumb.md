@@ -9,8 +9,9 @@ Extracts implementation decisions from the diff and agent traces, then presents 
 
 ## Prerequisites
 
-- Install plumb: `pipx install plumb-dev`
+- Install plumb: `make plumb-install`
 - Initialize in your project: `plumb init`
+- See the [Plumb Skill SETUP.md](.claude/skills/plumb/SETUP.md) for API key configuration and spec format requirements.
 
 ## Behavior
 

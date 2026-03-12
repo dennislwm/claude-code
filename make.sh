@@ -85,12 +85,45 @@ function setup_joplin {
 }
 
 function check_plumb {
-  command -v plumb > /dev/null 2>&1 || { echo "[WARN][$FUNCNAME]: plumb not installed. Run 'pipx install plumb-dev'."; return 0; }
+  command -v plumb > /dev/null 2>&1 || { echo "[WARN][$FUNCNAME]: plumb not installed. Run 'make plumb-install'."; return 0; }
   echo "[OK]   plumb found ($(plumb --version 2>&1 | head -1))"
   if [ -d ".plumb" ]; then
     echo "[OK]   .plumb initialized in current directory"
   else
     echo "[NONE][$FUNCNAME]: .plumb not found. Run 'plumb init' to initialize."
+  fi
+}
+
+function check_plumb_gaps {
+  local bin_path="$HOME/.local/bin/plumb-gaps"
+  case "$(_binary_state plumb-gaps "$bin_path")" in
+    in_path)          echo "[OK]   plumb-gaps installed ($(plumb-gaps --version 2>&1 | head -1 || echo 'no version'))" ;;
+    found_not_in_path) echo "[WARN][$FUNCNAME]: plumb-gaps found at $bin_path but not in PATH." ;;
+    not_installed)    echo "[NONE][$FUNCNAME]: plumb-gaps not installed. Run 'make setup' to install." ;;
+  esac
+}
+
+function setup_plumb_gaps {
+  local base_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  local src="$base_dir/common/plumb_gaps.py"
+  local bin_path="$HOME/.local/bin/plumb-gaps"
+  # Install globally
+  if [ ! -f "$src" ]; then
+    echo "[ERROR][$FUNCNAME]: $src not found."
+    return 1
+  fi
+  mkdir -p "$HOME/.local/bin"
+  cp "$src" "$bin_path"
+  chmod +x "$bin_path"
+  echo "[OK]   plumb-gaps installed to $bin_path"
+  # Copy to target project if TARGET_PROJECT is set and has .plumb/ initialized
+  local target="${TARGET_PROJECT:-}"
+  if [ -n "$target" ] && [ -d "$target/.plumb" ]; then
+    cp "$src" "$target/plumb_gaps.py"
+    echo "[OK]   plumb_gaps.py copied to $target/"
+  else
+    echo "[INFO] To add plumb_gaps.py to a project: TARGET_PROJECT=/path/to/project make setup"
+    echo "       or: cp $bin_path /path/to/project/plumb_gaps.py"
   fi
 }
 
@@ -211,6 +244,7 @@ function show_status {
   check_joplin || true
   check_obsidian || true
   check_plumb || true
+  check_plumb_gaps || true
   check_link
   echo "=============="
 }
@@ -225,5 +259,6 @@ function setup_commands {
   link_item "$base_dir/.claude/commands" "$HOME/.claude/commands"
   link_item "$base_dir/.claude/agents" "$HOME/.claude/agents"
   setup_plumb_hook
+  setup_plumb_gaps
   echo "================================"
 }
