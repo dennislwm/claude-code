@@ -1,99 +1,130 @@
 # Plumb Skill
 
-Plumb keeps the spec, tests, and code in sync via a pre-commit hook that
-surfaces decisions for review before each commit lands.
+Plumb keeps the spec, tests, and code in sync. It intercepts every `git commit`
+via a pre-commit hook, analyzes staged changes and conversation history, and
+surfaces decisions for review before the commit lands.
 
-For initial setup, API key configuration, spec format requirements, and
-troubleshooting, see [SETUP.md](SETUP.md).
+## Your responsibilities when Plumb is active
 
-## Session Pre-flight
+### Before starting work
+Run `plumb status` to understand the current state of spec/test/code alignment.
+Note any pending decisions and any broken git references. Report a brief summary
+to the user before proceeding.
 
-Run before `plumb status` to catch common failures in one pass:
+### Before committing
+Run `plumb diff` to preview what Plumb will capture from staged changes. Report
+the estimated decisions to the user so they are not surprised during review.
 
-```bash
-# 1. Source .env if present (required for all LLM-dependent commands)
-[ -f .env ] && set -a && source .env && set +a
+### When git commit is intercepted
+When you run `git commit` and it exits non-zero with Plumb output, do the
+following:
 
-# 2. Verify API key
-echo "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:+set} OPENAI_API_KEY=${OPENAI_API_KEY:+set} PLUMB_MODEL=${PLUMB_MODEL:-default}"
+1. Parse the JSON from stdout. It will have this shape:
+   ```json
+   {
+     "pending_decisions": 2,
+     "decisions": [
+       {
+         "id": "dec-abc123",
+         "question": "...",
+         "decision": "...",
+         "made_by": "llm",
+         "confidence": 0.87
+       }
+     ]
+   }
+   ```
 
-# 3. Check config paths are correct (spec_paths must point to declarative bullet-point requirements)
-cat .plumb/config.json
+2. **You MUST use `AskUserQuestion` to present decisions.** Do NOT print decision
+   details as plain text and ask the user to respond. You MUST use the
+   `AskUserQuestion` tool so the user sees the native multiple-choice UI.
+   Present each decision with these options:
+   - **Approve** (Recommended) — accept it and update the spec
+   - **Approve with edits** — modify what the decision says before approving
+   - **Ignore** — not spec-relevant; discard permanently
+   - **Reject** — undo this change in the staged code
 
-# 4. Check requirements are parsed (if 0, run `plumb parse-spec`)
-python3 -c "import json; r=json.load(open('.plumb/requirements.json')); print(len(r), 'requirements')"
-
-# 5. Generate gaps file (no LLM call needed)
-plumb-gaps
-
-# 6. Run status (only meaningful if requirements > 0)
-plumb status
-```
-
-## Responsibilities
-
-**Before starting work:** Run the Session Pre-flight, then `plumb status`.
-Report a brief summary of spec/test/code alignment and any pending decisions.
-
-**Before committing:** Run `plumb diff`. Report the estimated decisions so
-the user is not surprised during review.
-
-**When git commit is intercepted** (exits non-zero with Plumb output):
-
-1. Parse stdout JSON fields: `pending_decisions` (int), `decisions[]` with
-   `id`, `question`, `decision`, `made_by`, `confidence`.
-
-2. Use `AskUserQuestion` (never plain text) to present each decision:
+   Include the decision details in the question text:
    ```
    Plumb found [N] decision(s). Decision [X of N]:
    Question: [question]
    Decision: [decision]
    Made by: [made_by] (confidence: [confidence])
    ```
-   Options: Approve / Approve with edits / Ignore / Reject
 
-3. Execute the user's selection:
-   - Approve: `plumb approve <id>` (or `plumb approve --all` if all approved)
-   - Approve with edits: `plumb edit <id> "<new text>"`
+   This is non-negotiable. Presenting decisions as plain text defeats the
+   purpose of structured review. Always use `AskUserQuestion`.
+
+3. Based on the user's selection, call the appropriate command:
+   - Approve: `plumb approve <id>`
+   - Approve with edits: `plumb edit <id> "<new decision text from user>"`
    - Ignore: `plumb ignore <id>`
-   - Reject: `plumb reject <id> --reason "..."` (code is modified automatically)
+   - Reject: `plumb reject <id> --reason "..."`
+     (modify runs automatically — no separate call needed)
 
-4. Run `plumb sync` to update spec files and generate tests. Stage the output.
+   If the user approved ALL decisions with no edits, use `plumb approve --all`
+   instead of approving each one individually.
 
-5. Re-run `git commit` with a message listing approved decision IDs and summaries.
-   Repeat review if new decisions are found.
+4. **After all decisions are resolved, run `plumb sync`.** This updates the spec
+   files and generates tests for approved decisions. You MUST run sync
+   before re-committing — approved decisions that are not synced will leave the
+   spec out of date.
 
-**After committing / when guiding next work:** Run `plumb coverage`. Report
-gaps across all three dimensions (code coverage, spec-to-test, spec-to-code)
-and flag requirements with no tests or implementation.
+5. Stage any files changed by sync (spec files, generated tests), then re-run
+   `git commit`. Draft the commit message **after** decision review is complete
+   and include a summary of approved decisions (e.g. "Approved: dec-abc123
+   (added caching), dec-def456 (fixed retry logic)"). The hook will fire again.
+   If there are no pending decisions it will exit 0 and the commit will land.
+   If new decisions are found (rare), repeat the review process.
+
+### After committing
+Run `plumb coverage` and briefly report the three coverage dimensions to the
+user: code coverage, spec-to-test coverage, and spec-to-code coverage. Flag any
+gaps that should be addressed before the next commit.
+
+### Using coverage to guide work
+When the user asks what to work on next, run `plumb coverage` to identify:
+- Requirements with no corresponding tests (run `plumb parse-spec` first if the
+  spec has changed)
+- Requirements with no corresponding implementation
+- Code with no test coverage
+
+Present these gaps clearly so the user can prioritize.
 
 ## Rules
 
-- NEVER approve, reject, or edit decisions without explicit user instruction.
+- **NEVER approve, reject, or edit decisions without explicit user instruction.**
+  Every decision must be presented to the user via `AskUserQuestion`, and the user
+  must tell you how to handle each one. Do not batch-approve, auto-approve, or
+  assume the user's intent. This is the core purpose of Plumb — human review of
+  decisions.
+- **ALWAYS use `AskUserQuestion` to present decisions. NEVER print them as plain
+  text.** The native multiple-choice UI is the only acceptable way to present
+  decisions. If you present decisions as plain text you are doing it wrong.
 - Never edit `.plumb/decisions.jsonl` directly.
-- You MAY edit `.plumb/config.json` directly to correct `spec_paths` or
-  `test_paths` when they point to the wrong locations.
-- Never install this skill globally (`~/.claude/`). It is project-local only.
-- Spec files are source of truth. Let `plumb sync` update them — do not edit
-  spec files manually to resolve decisions.
-- Do not commit if any decision has `status: rejected_manual`. The user must
-  resolve these first.
-- `plumb map-tests` requires interactive confirmation. Use
-  `echo "y" | plumb map-tests` to apply mappings non-interactively.
+- Never edit `.plumb/config.json` directly. Use `plumb init` or `plumb status`.
+- Never install the Plumb skill globally (`~/.claude/`). It is project-local only.
+- The spec markdown files are the source of truth for intended behavior. Plumb
+  keeps them updated as decisions are approved. Do not edit spec files to resolve
+  decisions — let Plumb do it via `plumb sync`.
+- Do not attempt to commit if there are decisions with `status: rejected_manual`.
+  The user must resolve these manually first.
 
-## Command Reference
+## Command reference
 
 | Command | When to use |
 |---|---|
-| `plumb status` | After pre-flight, start of session |
-| `plumb diff` | Before committing |
-| `plumb approve <id>` | User approves a decision |
-| `plumb approve --all` | User approves all pending decisions |
-| `plumb reject <id> --reason "<text>"` | User rejects a decision |
-| `plumb ignore <id>` | User marks decision as not spec-relevant |
+| `plumb status` | Start of session, before beginning work |
+| `plumb diff` | Before committing, to preview decisions |
+| `plumb hook` | Called automatically by pre-commit hook |
+| `plumb check` | Manually scan staged changes for decisions (alias for hook) |
+| `plumb approve <id>` | User approves a decision during review |
+| `plumb approve --all` | User approves all pending decisions at once |
+| `plumb reject <id> --reason "<text>"` | User rejects a decision (auto-modifies code) |
+| `plumb ignore <id>` | User marks a decision as not spec-relevant |
+| `plumb modify <id>` | Called automatically by reject — do not call directly |
 | `plumb edit <id> "<text>"` | User amends decision text before approving |
-| `plumb sync` | After approving — updates spec and generates tests |
+| `plumb review` | Interactive terminal review (not needed in Claude Code) |
+| `plumb sync` | **Run after approving decisions** — updates spec and generates tests |
 | `plumb coverage` | Report coverage across all three dimensions |
 | `plumb parse-spec` | Re-parse spec after manual edits |
-| `echo "y" \| plumb map-tests` | Map tests to requirements non-interactively |
-| `plumb-gaps` | Write `.plumb/gaps.json` without an LLM call |

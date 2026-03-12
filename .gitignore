@@ -1,0 +1,7 @@
+.env
+.coverage
+__pycache__/
+.pytest_cache/
+.plumb/gaps.json
+.plumb/code_coverage_map.json
+.plumb/coverage.json

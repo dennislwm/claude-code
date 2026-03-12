@@ -1,0 +1,42 @@
+# Plumber Agent Specification
+
+Requirements for the `plumber` agent — a Claude Code skill that replicates
+plumb's spec/test/code alignment workflow without any dependency on the plumb
+CLI Python application.
+
+## Core Requirements
+
+- The plumber agent stores all state in a `.plumb/` directory using the same JSON schemas as the plumb CLI for compatibility.
+- The plumber agent uses a single self-contained Python helper script `plumber.py` that requires no third-party packages.
+- The plumber agent parses spec files by extracting declarative bullet-point requirements using regex without any LLM call.
+- The plumber agent computes requirement IDs using `req-<sha256(text.strip().lower())[:8]>` to match the plumb ID format.
+- The plumber agent writes `.plumb/requirements.json` with fields: id, source_file, source_section, text, ambiguous, created_at, last_seen_commit.
+- The plumber agent detects gaps by grepping test and source files for keywords extracted from each requirement text.
+- The plumber agent writes `.plumb/gaps.json` with fields: requirement_id, text, has_test, has_code.
+- The plumber agent reads `.plumb/config.json` to determine spec_paths, test_paths, and source_paths.
+- The plumber agent reports a status summary showing requirement count, gap count, and pending decision count.
+- The plumber agent lists pending decisions as a JSON array from `.plumb/decisions.jsonl`.
+
+## Decision Workflow Requirements
+
+- The plumber agent approves a decision by setting its status to `approved` and recording resolved_at timestamp in decisions.jsonl.
+- The plumber agent supports approving all pending decisions in a single command with an `--all` flag.
+- The plumber agent rejects a decision by setting its status to `rejected` and recording the reason and resolved_at timestamp.
+- The plumber agent ignores a decision by setting its status to `ignored` and recording resolved_at timestamp.
+- The plumber agent edits a decision by updating its decision text while keeping status as `pending`.
+- The plumber agent never modifies decisions.jsonl directly — all mutations go through the helper script subcommands.
+
+## Sync Procedure Requirements
+
+- The plumber agent performs sync by reading approved decisions and updating the corresponding spec bullet points using the Edit tool.
+- The plumber agent generates tests for approved decisions by reading the nearest existing test file and appending a new test function that matches the requirement text.
+- The plumber agent re-runs the gaps command after sync and reports how many gaps were closed.
+- The plumber agent stages all modified spec files, test files, and .plumb/ state files after sync.
+
+## Session Workflow Requirements
+
+- The plumber agent runs a session pre-flight that checks config paths, requirement count, and generates gaps before reporting status.
+- The plumber agent uses AskUserQuestion to present each pending decision to the user before committing.
+- The plumber agent never approves, rejects, or edits decisions without explicit user instruction.
+- The plumber agent reports coverage across three dimensions: spec-to-test, spec-to-code, and decision resolution rate.
+- The plumber agent generates decision records by inspecting git diff --staged output and comparing changes against requirements.json.
