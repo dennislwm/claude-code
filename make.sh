@@ -18,17 +18,28 @@ function check_ledger {
   echo "[OK]   ledger found ($(ledger --version 2>&1 | head -1))"
 }
 
+# Returns: "in_path", "found_not_in_path", or "not_installed"
+function _binary_state {
+  local cmd="$1" fallback_path="$2"
+  if command -v "$cmd" > /dev/null 2>&1; then
+    echo "in_path"
+  elif [ -f "$fallback_path" ]; then
+    echo "found_not_in_path"
+  else
+    echo "not_installed"
+  fi
+}
+
 function check_joplin {
   local go_bin="$HOME/go/bin"
-  if ! command -v joplin-butler > /dev/null 2>&1; then
-    if [ -f "$go_bin/joplin-butler" ]; then
-      echo "[WARN][$FUNCNAME]: joplin-butler not in PATH. Run 'make setup' to add $go_bin to PATH."
-    else
-      echo "[WARN][$FUNCNAME]: joplin-butler not installed. /joplin skill will not work."
-    fi
-    return 0
-  fi
-  echo "[OK]   joplin-butler found ($(joplin-butler --version 2>&1 | head -1))"
+  case "$(_binary_state joplin-butler "$go_bin/joplin-butler")" in
+    in_path)
+      echo "[OK]   joplin-butler found ($(joplin-butler --version 2>&1 | head -1))" ;;
+    found_not_in_path)
+      echo "[WARN][$FUNCNAME]: joplin-butler not in PATH. Run 'make setup' to add $go_bin to PATH."; return 0 ;;
+    not_installed)
+      echo "[WARN][$FUNCNAME]: joplin-butler not installed. /joplin skill will not work."; return 0 ;;
+  esac
   if [ -z "${JOPLIN_TOKEN:-}" ]; then
     echo "[WARN][$FUNCNAME]: JOPLIN_TOKEN not set. Run 'make setup' or export it manually."
     return 0
@@ -45,20 +56,18 @@ function check_joplin {
 
 function setup_joplin {
   local go_bin="$HOME/go/bin"
-  if command -v joplin-butler > /dev/null 2>&1; then
-    echo "[SKIP] joplin-butler already in PATH"
-  elif [ -f "$go_bin/joplin-butler" ]; then
-    echo "export PATH=\"\$PATH:$go_bin\"" >> ~/.bash_profile
-    export PATH="$PATH:$go_bin"
-    echo "[OK]   joplin-butler added to PATH via ~/.bash_profile"
-  else
-    echo "[WARN][$FUNCNAME]: joplin-butler not installed. Install via: go install github.com/Garoth/joplin-butler@latest"
-    return 0
-  fi
-  check_joplin || true
-  if ! command -v joplin-butler > /dev/null 2>&1; then
-    return 0
-  fi
+  case "$(_binary_state joplin-butler "$go_bin/joplin-butler")" in
+    in_path)
+      echo "[SKIP] joplin-butler already in PATH" ;;
+    found_not_in_path)
+      echo "export PATH=\"\$PATH:$go_bin\"" >> ~/.bash_profile
+      export PATH="$PATH:$go_bin"
+      echo "[OK]   joplin-butler added to PATH via ~/.bash_profile" ;;
+    not_installed)
+      echo "[WARN][$FUNCNAME]: joplin-butler not installed. Install via: go install github.com/Garoth/joplin-butler@latest"
+      return 0 ;;
+  esac
+  if ! command -v joplin-butler > /dev/null 2>&1; then return 0; fi
   if [ -z "${JOPLIN_TOKEN:-}" ]; then
     echo "[INFO] JOPLIN_TOKEN not set."
     echo "       Find your token in Joplin Desktop: Settings > Web Clipper Options."
@@ -75,31 +84,73 @@ function setup_joplin {
   fi
 }
 
+function check_plumb {
+  command -v plumb > /dev/null 2>&1 || { echo "[WARN][$FUNCNAME]: plumb not installed. Run 'pipx install plumb-dev'."; return 0; }
+  echo "[OK]   plumb found ($(plumb --version 2>&1 | head -1))"
+  if [ -d ".plumb" ]; then
+    echo "[OK]   .plumb initialized in current directory"
+  else
+    echo "[NONE][$FUNCNAME]: .plumb not found. Run 'plumb init' to initialize."
+  fi
+}
+
+function setup_plumb_hook {
+  local global_settings="$HOME/.claude/settings.json"
+  local hook_cmd='[ -d .plumb ] && plumb extract --auto && plumb review || true'
+  # Check if hook already present
+  if [ -f "$global_settings" ] && grep -q 'plumb extract' "$global_settings" 2>/dev/null; then
+    echo "[SKIP] plumb Stop hook already in $global_settings"
+    return 0
+  fi
+  if [ ! -f "$global_settings" ]; then
+    echo "[WARN][$FUNCNAME]: $global_settings not found. Create it manually or run Claude Code once first."
+    return 0
+  fi
+  command -v python3 > /dev/null 2>&1 || { echo "[ERROR][$FUNCNAME]: python3 not found. Cannot merge hook into $global_settings."; return 1; }
+  # Use python3 to merge the hook into existing settings JSON
+  python3 - "$global_settings" "$hook_cmd" <<'EOF'
+import json, sys
+path, cmd = sys.argv[1], sys.argv[2]
+with open(path) as f:
+    s = json.load(f)
+hooks = s.setdefault("hooks", {})
+stop = hooks.setdefault("Stop", [])
+entry = {"hooks": [{"type": "command", "command": cmd}]}
+stop.append(entry)
+with open(path, "w") as f:
+    json.dump(s, f, indent=2)
+    f.write("\n")
+EOF
+  echo "[OK]   plumb Stop hook added to $global_settings"
+}
+
 function check_obsidian {
   local obsidian_mac="/Applications/Obsidian.app/Contents/MacOS"
   local plist="/Applications/Obsidian.app/Contents/Info.plist"
-  if command -v obsidian > /dev/null 2>&1; then
-    local version
-    version=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "$plist" 2>/dev/null || echo "unknown")
-    echo "[OK]   obsidian found (v${version})"
-  elif [ -d "$obsidian_mac" ]; then
-    echo "[WARN][$FUNCNAME]: obsidian not in PATH. /obsidian skill will not work."
-  else
-    echo "[WARN][$FUNCNAME]: obsidian not installed. /obsidian skill will not work."
-  fi
+  case "$(_binary_state obsidian "$obsidian_mac/obsidian")" in
+    in_path)
+      local version
+      version=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "$plist" 2>/dev/null || echo "unknown")
+      echo "[OK]   obsidian found (v${version})" ;;
+    found_not_in_path)
+      echo "[WARN][$FUNCNAME]: obsidian not in PATH. /obsidian skill will not work." ;;
+    not_installed)
+      echo "[WARN][$FUNCNAME]: obsidian not installed. /obsidian skill will not work." ;;
+  esac
 }
 
 function setup_obsidian {
   local obsidian_mac="/Applications/Obsidian.app/Contents/MacOS"
-  if command -v obsidian > /dev/null 2>&1; then
-    echo "[SKIP] obsidian already in PATH"
-  elif [ -d "$obsidian_mac" ]; then
-    echo "export PATH=\"\$PATH:$obsidian_mac\"" >> ~/.bash_profile
-    export PATH="$PATH:$obsidian_mac"
-    echo "[OK]   obsidian added to PATH via ~/.bash_profile"
-  else
-    echo "[WARN][$FUNCNAME]: obsidian not installed. /obsidian skill will not work."
-  fi
+  case "$(_binary_state obsidian "$obsidian_mac/obsidian")" in
+    in_path)
+      echo "[SKIP] obsidian already in PATH" ;;
+    found_not_in_path)
+      echo "export PATH=\"\$PATH:$obsidian_mac\"" >> ~/.bash_profile
+      export PATH="$PATH:$obsidian_mac"
+      echo "[OK]   obsidian added to PATH via ~/.bash_profile" ;;
+    not_installed)
+      echo "[WARN][$FUNCNAME]: obsidian not installed. /obsidian skill will not work." ;;
+  esac
 }
 
 function check_link {
@@ -153,12 +204,13 @@ function list_items {
 
 function show_status {
   echo "=== Status ==="
-  check_gh || true
+  check_gh
   check_bats || true
   check_uvx || true
   check_ledger || true
   check_joplin || true
   check_obsidian || true
+  check_plumb || true
   check_link
   echo "=============="
 }
@@ -172,5 +224,6 @@ function setup_commands {
   setup_obsidian
   link_item "$base_dir/.claude/commands" "$HOME/.claude/commands"
   link_item "$base_dir/.claude/agents" "$HOME/.claude/agents"
+  setup_plumb_hook
   echo "================================"
 }
