@@ -20,6 +20,7 @@ import argparse
 import hashlib
 import json
 import re
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -51,6 +52,9 @@ STOP_WORDS = {
 BULLET_RE = re.compile(r"^[ \t]*[-*+]\s+(.+)$", re.MULTILINE)
 HEADING_RE = re.compile(r"^#{1,6}\s+(.+)$")
 SKIP_RE = re.compile(r"^(TODO|NOTE|FIXME|TBD)\b", re.IGNORECASE)
+
+# Default decision text produced by the keyword hook — not a valid spec restatement
+_HOOK_DECISION_TEXT = "Staged changes overlap with this requirement."
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -99,7 +103,6 @@ def save_decisions(decisions: list) -> None:
 
 def current_commit() -> str | None:
     try:
-        import subprocess
         r = subprocess.run(["git", "rev-parse", "HEAD"],
                            capture_output=True, text=True, cwd=PROJECT_ROOT)
         return r.stdout.strip() or None
@@ -348,13 +351,17 @@ def cmd_sync(args) -> None:
     test_files = _collect_files(config.get("test_paths", []), (".py",))  # hoisted out of loop
     spec_updates = 0
     test_updates = 0
-    written_stubs: set = set()  # dedup guard: prevents duplicate test_<slug> functions
+    written_stubs: set[str] = set()  # dedup guard: prevents duplicate test_<slug> functions
 
     for dec in approved:
         rid = dec.get("requirement_id")
         if not rid or rid not in reqs:
             continue
         req = reqs[rid]
+
+        # Skip generic hook placeholder — not a meaningful spec restatement
+        if dec.get("decision") == _HOOK_DECISION_TEXT:
+            continue
 
         # 1. Update spec bullet (req-7ec7755f)
         spec_path = PROJECT_ROOT / req["source_file"]
@@ -386,40 +393,29 @@ def cmd_sync(args) -> None:
 
 
 # ---------------------------------------------------------------------------
-# check (generate decisions from staged diff)
+# check / hook / diff (generate decisions from staged diff)
 # ---------------------------------------------------------------------------
 
-def cmd_check(args) -> None:
-    import subprocess
-    result = subprocess.run(
-        ["git", "diff", "--staged"],
-        capture_output=True, text=True, cwd=PROJECT_ROOT
-    )
-    diff = result.stdout
+def _check_diff(diff: str, existing_decisions: list | None = None) -> list:
+    """Return new decision dicts from diff without saving. Shared by check/hook/diff."""
     if not diff.strip():
-        print("[plumber] No staged changes.")
-        return
-
+        return []
     added_lines = [
         line[1:] for line in diff.splitlines()
         if line.startswith("+") and not line.startswith("+++")
     ]
     if not added_lines:
-        print("[plumber] No added lines in staged diff.")
-        return
-
+        return []
     diff_keywords = set(re.findall(r"[a-z]{4,}", " ".join(added_lines).lower())) - STOP_WORDS
-
-    reqs = load_requirements()
-    decisions = load_decisions()
-    existing_req_ids = {d.get("requirement_id") for d in decisions if d.get("status") == "pending"}
-
-    created = 0
-    for req in reqs:
+    if existing_decisions is None:
+        existing_decisions = load_decisions()
+    existing_req_ids = {d.get("requirement_id") for d in existing_decisions if d.get("status") == "pending"}
+    created = []
+    for req in load_requirements():
         req_kws = set(_keywords(req["text"]))
         if req_kws & diff_keywords and req["id"] not in existing_req_ids:
             did = f"dec-{hashlib.sha256((req['id'] + diff[:64]).encode()).hexdigest()[:8]}"
-            decisions.append({
+            created.append({
                 "id": did,
                 "requirement_id": req["id"],
                 "question": f"Does this change affect: {req['text'][:80]}?",
@@ -431,11 +427,76 @@ def cmd_check(args) -> None:
                 "resolved_at": None,
             })
             existing_req_ids.add(req["id"])
-            created += 1
+    return created
 
-    if created:
-        save_decisions(decisions)
-    print(f"[plumber] check: {created} decision(s) created from staged diff.")
+
+def _run_staged_diff_and_save() -> tuple[list, list]:
+    """Run git diff --staged, create and save new decisions, return (all_decisions, new_decisions)."""
+    result = subprocess.run(
+        ["git", "diff", "--staged"],
+        capture_output=True, text=True, cwd=PROJECT_ROOT
+    )
+    all_decisions = load_decisions()
+    new_decisions = _check_diff(result.stdout, all_decisions)
+    if new_decisions:
+        all_decisions.extend(new_decisions)
+        save_decisions(all_decisions)
+    return all_decisions, new_decisions
+
+
+def cmd_check(args) -> None:
+    _, new = _run_staged_diff_and_save()
+    print(f"[plumber] check: {len(new)} decision(s) created from staged diff.")
+
+
+def cmd_hook(args) -> None:
+    """Plumb-compatible pre-commit hook: check staged diff, output JSON, exit 1 if pending."""
+    all_decisions, _ = _run_staged_diff_and_save()
+    pending = [d for d in all_decisions if d.get("status") == "pending"]
+    print(json.dumps({"pending_decisions": len(pending), "decisions": pending}))
+    if pending:
+        sys.exit(1)
+
+
+def cmd_diff(args) -> None:
+    """Preview decisions that would be created from staged diff, without saving."""
+    result = subprocess.run(
+        ["git", "diff", "--staged"],
+        capture_output=True, text=True, cwd=PROJECT_ROOT
+    )
+    all_decisions = load_decisions()
+    existing_pending = [d for d in all_decisions if d.get("status") == "pending"]
+    preview = _check_diff(result.stdout, all_decisions)
+    total = len(preview) + len(existing_pending)
+    print(f"[plumber] diff: {total} decision(s) would be pending "
+          f"({len(existing_pending)} existing + {len(preview)} new)")
+    if total:
+        print(json.dumps(existing_pending + preview, indent=2))
+
+
+def cmd_install_hook(args) -> None:
+    """Install plumber pre-commit hook to .git/hooks/pre-commit."""
+    hook_dir = PROJECT_ROOT / ".git" / "hooks"
+    hook_path = hook_dir / "pre-commit"
+    if not hook_dir.exists():
+        print("[plumber] ERROR: .git/hooks not found. Is this a git repo?", file=sys.stderr)
+        sys.exit(1)
+    script = (
+        "#!/bin/sh\n"
+        "# Plumber pre-commit hook — auto-installed by plumber.py install-hook\n"
+        "cd \"$(git rev-parse --show-toplevel)/app\" || exit 1\n"
+        "if command -v pipenv >/dev/null 2>&1; then\n"
+        "  output=$(pipenv run python3 plumber.py hook 2>&1)\n"
+        "else\n"
+        "  output=$(python3 plumber.py hook 2>&1)\n"
+        "fi\n"
+        "exit_code=$?\n"
+        "echo \"$output\"\n"
+        "exit $exit_code\n"
+    )
+    hook_path.write_text(script)
+    hook_path.chmod(0o755)
+    print(f"[plumber] Installed pre-commit hook: {hook_path}")
 
 
 # ---------------------------------------------------------------------------
@@ -469,6 +530,53 @@ def cmd_coverage(args) -> None:
 
 
 # ---------------------------------------------------------------------------
+# coverage-semantic (reads plumb's LLM analysis from code_coverage_map.json)
+# ---------------------------------------------------------------------------
+
+CODE_COVERAGE_MAP_FILE = STATE_DIR / "code_coverage_map.json"
+SEMANTIC_COVERAGE_FILE = STATE_DIR / "semantic_coverage.json"
+
+
+def _print_semantic_results(label: str, results: dict, reqs: list, verbose: bool) -> None:
+    req_ids = {r["id"] for r in reqs}
+    matched = {rid: v for rid, v in results.items() if rid in req_ids}
+    stale = len(results) - len(matched)
+    implemented = sum(1 for v in matched.values() if v.get("implemented"))
+    total = len(reqs)
+    pct = (implemented * 100 // total) if total else 0
+    print(f"=== Plumber Semantic Coverage ({label}) ===")
+    print(f"  Total requirements : {total}")
+    print(f"  Matched to map     : {len(matched)}/{total}"
+          + (f" ({stale} stale)" if stale else ""))
+    print(f"  Spec -> Code       : {implemented}/{total} ({pct}%)")
+    if verbose:
+        print("\n  Not implemented:")
+        req_map = {r["id"]: r["text"] for r in reqs}
+        for rid, v in matched.items():
+            if not v.get("implemented"):
+                print(f"    {rid}: {req_map.get(rid, '')[:70]}")
+                if v.get("evidence"):
+                    print(f"      evidence: {v['evidence'][:80]}")
+
+
+def cmd_coverage_semantic(args) -> None:
+    reqs = load_requirements()
+    verbose = args and getattr(args, "verbose", False)
+
+    if CODE_COVERAGE_MAP_FILE.exists():
+        data = json.loads(CODE_COVERAGE_MAP_FILE.read_text())
+        _print_semantic_results("LLM via plumb", data.get("results", {}), reqs, verbose)
+    elif SEMANTIC_COVERAGE_FILE.exists():
+        data = json.loads(SEMANTIC_COVERAGE_FILE.read_text())
+        _print_semantic_results("agent-native", data.get("results", {}), reqs, verbose)
+    else:
+        print("[plumber] No semantic coverage data found.\n"
+              "  Option A: run `plumb coverage` (requires plumb CLI + API key)\n"
+              "  Option B: ask Claude to analyze requirements and write .plumb/semantic_coverage.json",
+              file=sys.stderr)
+
+
+# ---------------------------------------------------------------------------
 # create-decision
 # ---------------------------------------------------------------------------
 
@@ -496,7 +604,6 @@ def cmd_create_decision(args) -> None:
 # ---------------------------------------------------------------------------
 
 def cmd_stage(args) -> None:
-    import subprocess
     config = load_config()
     paths = [str(STATE_DIR)] + config.get("spec_paths", []) + config.get("test_paths", [])
     result = subprocess.run(["git", "add"] + paths, capture_output=True, text=True, cwd=PROJECT_ROOT)
@@ -536,7 +643,12 @@ def build_parser() -> argparse.ArgumentParser:
     ep.add_argument("text")
 
     sub.add_parser("check")
+    sub.add_parser("hook")
+    sub.add_parser("diff")
+    sub.add_parser("install-hook")
     sub.add_parser("coverage")
+    cs = sub.add_parser("coverage-semantic")
+    cs.add_argument("--verbose", action="store_true")
     sub.add_parser("sync")
     sub.add_parser("stage")
 
@@ -559,7 +671,11 @@ COMMANDS = {
     "ignore": cmd_ignore,
     "edit": cmd_edit,
     "check": cmd_check,
+    "hook": cmd_hook,
+    "diff": cmd_diff,
+    "install-hook": cmd_install_hook,
     "coverage": cmd_coverage,
+    "coverage-semantic": cmd_coverage_semantic,
     "sync": cmd_sync,
     "stage": cmd_stage,
     "create-decision": cmd_create_decision,

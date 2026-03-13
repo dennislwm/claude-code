@@ -1,0 +1,126 @@
+{
+  "method": "agent-native",
+  "analyzed_at": "2026-03-13",
+  "results": {
+    "req-f8eb8cc5": {
+      "implemented": true,
+      "evidence": "plumber.py stores state in .plumb/ directory with schema including requirements.json, decisions.jsonl, gaps.json, config.json, and code_coverage_map.json"
+    },
+    "req-67e3ad68": {
+      "implemented": true,
+      "evidence": "plumber.py is a single self-contained Python script using only stdlib imports (argparse, hashlib, json, re, sys, datetime, pathlib, subprocess)"
+    },
+    "req-958ba67c": {
+      "implemented": true,
+      "evidence": "parse_spec_from_text() function uses regex (BULLET_RE) to extract bullet points without any LLM call"
+    },
+    "req-64ed0d82": {
+      "implemented": true,
+      "evidence": "req_id() function computes req-<sha256(text.strip().lower())[:8]> format in line 64-65"
+    },
+    "req-e6c0d566": {
+      "implemented": true,
+      "evidence": "save_requirements() in plumber.py writes requirements.json with fields: id, source_file, source_section, text, ambiguous, created_at, last_seen_commit (lines 82-84)"
+    },
+    "req-5b8b8fc0": {
+      "implemented": true,
+      "evidence": "compute_gaps() uses _keywords() to extract keywords and _file_contains_any() to grep test/source files (lines 203-220)"
+    },
+    "req-d1f94c2d": {
+      "implemented": true,
+      "evidence": "compute_gaps() writes gaps.json with fields: requirement_id, text, has_test, has_code (lines 214-219)"
+    },
+    "req-4293d677": {
+      "implemented": true,
+      "evidence": "load_config() reads .plumb/config.json with spec_paths, test_paths, source_paths; DEFAULT_CONFIG shows these fields (lines 38-42, 68-73)"
+    },
+    "req-8f985d78": {
+      "implemented": true,
+      "evidence": "cmd_status() reports requirement count, gap count, and pending decision count (lines 241-259)"
+    },
+    "req-e414e762": {
+      "implemented": true,
+      "evidence": "cmd_decisions() reads decisions.jsonl from .plumb/ and filters for pending status (lines 265-267)"
+    },
+    "req-6af914d5": {
+      "implemented": true,
+      "evidence": ".gitignore includes .plumb/requirements.json on line 8"
+    },
+    "req-51e8c42f": {
+      "implemented": true,
+      "evidence": "cmd_approve() sets status to 'approved' and records resolved_at timestamp (lines 292-309)"
+    },
+    "req-30925d84": {
+      "implemented": true,
+      "evidence": "cmd_approve() supports --all flag to approve all pending decisions (lines 294-301)"
+    },
+    "req-8ad072bb": {
+      "implemented": true,
+      "evidence": "cmd_reject() sets status to 'rejected', records reject_reason and resolved_at (lines 312-318)"
+    },
+    "req-bee78fca": {
+      "implemented": true,
+      "evidence": "cmd_ignore() sets status to 'ignored' and records resolved_at timestamp (lines 321-323)"
+    },
+    "req-f4e1a8e0": {
+      "implemented": true,
+      "evidence": "cmd_edit() updates decision text and sets edited_at timestamp while keeping status as pending (lines 326-331)"
+    },
+    "req-b3b1046b": {
+      "implemented": true,
+      "evidence": "All mutations use _mutate_decision() which loads, updates, and saves decisions.jsonl; no direct file edits"
+    },
+    "req-7ec7755f": {
+      "implemented": true,
+      "evidence": "SKILL.md documents that sync updates spec bullet points; cmd_sync() implements this by reading approved decisions and replacing spec text"
+    },
+    "req-1b82f41d": {
+      "implemented": true,
+      "evidence": "cmd_sync() generates test stubs by reading test files and appending test_<slug> functions"
+    },
+    "req-82c7673a": {
+      "implemented": true,
+      "evidence": "cmd_sync() re-runs gaps after sync and reports closed gaps"
+    },
+    "req-a389a385": {
+      "implemented": true,
+      "evidence": "cmd_stage() stages .plumb/ directory, spec_paths, and test_paths using git add"
+    },
+    "req-fa199100": {
+      "implemented": true,
+      "evidence": "SETUP.md documents the fix for LLM dedup step in pre-commit hook using program_models config"
+    },
+    "req-ea5b9c91": {
+      "implemented": true,
+      "evidence": "SKILL.md documents session pre-flight: check config, parse-spec, gaps before reporting status"
+    },
+    "req-079b5c52": {
+      "implemented": true,
+      "evidence": "SKILL.md explicitly requires using AskUserQuestion to present decisions with multiple-choice UI"
+    },
+    "req-92108d8e": {
+      "implemented": true,
+      "evidence": "SKILL.md Rule section: 'NEVER approve, reject, or edit decisions without explicit user instruction'"
+    },
+    "req-af627f29": {
+      "implemented": true,
+      "evidence": "cmd_coverage() reports three dimensions: spec-to-test, spec-to-code, decision resolution rate"
+    },
+    "req-79def47a": {
+      "implemented": true,
+      "evidence": "cmd_check() inspects git diff --staged and generates decision records by comparing changes against requirements"
+    },
+    "req-96cbb257": {
+      "implemented": true,
+      "evidence": "SETUP.md documents the dedup step fix for future sessions"
+    },
+    "req-e3e7ff7c": {
+      "implemented": true,
+      "evidence": ".claude/CLAUDE.md documents the dual-CLAUDE.md split"
+    },
+    "req-71e14304": {
+      "implemented": true,
+      "evidence": "cmd_create_decision() subcommand exists in plumber.py and SKILL.md can use it instead of inline writes"
+    }
+  }
+}
