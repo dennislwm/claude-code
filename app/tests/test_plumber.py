@@ -189,6 +189,7 @@ def patched_state(tmp_path, monkeypatch):
     monkeypatch.setattr(plumber, "REQUIREMENTS_FILE", tmp_path / ".plumb" / "requirements.json")
     monkeypatch.setattr(plumber, "GAPS_FILE", tmp_path / ".plumb" / "gaps.json")
     monkeypatch.setattr(plumber, "CONFIG_FILE", tmp_path / ".plumb" / "config.json")
+    monkeypatch.setattr(plumber, "PROJECT_ROOT", tmp_path)
     (tmp_path / ".plumb").mkdir()
     return tmp_path
 
@@ -350,6 +351,7 @@ def test_state_stored_in_plumb_dir(patched_state):
     assert (patched_state / ".plumb" / "decisions.jsonl").exists()
 
 
+
 def test_no_third_party_imports():
     # plumb:req-7428faf1
     import ast, importlib
@@ -382,6 +384,8 @@ def test_status_shows_summary(patched_state, capsys):
     assert "Requirements" in out
     assert "Gaps" in out
     assert "Pending" in out
+    assert "Requirements : 1" in out
+    assert "Pending      : 0" in out
 
 
 def test_decisions_lists_only_pending(patched_state, capsys):
@@ -423,6 +427,7 @@ def test_gaps_writes_json_file(patched_state):
     assert data[0]["requirement_id"] == reqs[0]["id"]
     assert "has_test" in data[0]
     assert "has_code" in data[0]
+    assert "text" in data[0]
 
 
 # ---------------------------------------------------------------------------
@@ -474,6 +479,137 @@ def test_stage_calls_git_add(patched_state, monkeypatch):
     assert str(patched_state / ".plumb") in captured["cmd"]
     assert "doc/spec.md" in captured["cmd"]
     assert "app/tests/" in captured["cmd"]
+
+
+def test_decisions_empty_returns_json_array(patched_state, capsys):
+    # plumb:req-156c5ab4
+    (patched_state / ".plumb" / "decisions.jsonl").write_text("")
+    args = ns()
+    plumber.cmd_decisions(args)
+    out = capsys.readouterr().out
+    data = json.loads(out)
+    assert data == []
+
+
+def test_parse_spec_record_has_all_required_fields(monkeypatch):
+    # plumb:req-8bd5738a
+    monkeypatch.setattr(plumber, "current_commit", lambda: "abc123")
+    text = "## Section\n- The agent writes requirements to the JSON file.\n"
+    results = plumber.parse_spec_from_text(text, "doc/spec.md", {})
+    rec = results[0]
+    for field in ("id", "source_file", "source_section", "text", "ambiguous", "created_at", "last_seen_commit"):
+        assert field in rec, f"Missing field: {field}"
+    assert rec["source_file"] == "doc/spec.md"
+    assert rec["last_seen_commit"] == "abc123"
+
+
+def test_load_config_falls_back_to_defaults_for_missing_keys(patched_state):
+    # plumb:req-0e510d20
+    # config.json exists (from plumb CLI) but lacks source_paths
+    (patched_state / ".plumb" / "config.json").write_text(
+        json.dumps({"spec_paths": ["doc/spec.md"], "test_paths": ["app/tests/"]}))
+    config = plumber.load_config()
+    assert config["source_paths"] == plumber.DEFAULT_CONFIG["source_paths"]
+    assert config["spec_paths"] == ["doc/spec.md"]  # file value preserved
+
+
+def test_load_config_reads_paths_from_file(patched_state):
+    # plumb:req-0e510d20
+    config_data = {
+        "spec_paths": ["doc/spec.md"],
+        "test_paths": ["app/tests/"],
+        "source_paths": ["app/"]
+    }
+    (patched_state / ".plumb" / "config.json").write_text(json.dumps(config_data))
+    config = plumber.load_config()
+    assert config["spec_paths"] == ["doc/spec.md"]
+    assert config["test_paths"] == ["app/tests/"]
+    assert config["source_paths"] == ["app/"]
+
+
+def test_check_creates_decision_for_matching_req(patched_state, monkeypatch):
+    # plumb:req-79def47a
+    import subprocess
+    req = make_req("The agent parses requirements from specification files.")
+    plumber.save_requirements([req])
+    plumber.save_decisions([])
+    (patched_state / ".plumb" / "config.json").write_text(
+        json.dumps({"spec_paths": [], "test_paths": [], "source_paths": []}))
+    fake_diff = "+++ b/plumber.py\n+def parse_requirements_from_specification():\n+    pass\n"
+    monkeypatch.setattr(subprocess, "run",
+                        lambda *a, **kw: type("R", (), {"stdout": fake_diff, "returncode": 0})())
+    plumber.cmd_check(ns())
+    decisions = plumber.load_decisions()
+    assert len(decisions) == 1
+    assert decisions[0]["requirement_id"] == req["id"]
+    assert decisions[0]["status"] == "pending"
+
+
+def test_check_no_decision_for_non_matching_diff(patched_state, monkeypatch):
+    # plumb:req-79def47a
+    import subprocess
+    req = make_req("The agent parses requirements from specification files.")
+    plumber.save_requirements([req])
+    plumber.save_decisions([])
+    (patched_state / ".plumb" / "config.json").write_text(
+        json.dumps({"spec_paths": [], "test_paths": [], "source_paths": []}))
+    fake_diff = "+++ b/other.py\n+x = 1\n"
+    monkeypatch.setattr(subprocess, "run",
+                        lambda *a, **kw: type("R", (), {"stdout": fake_diff, "returncode": 0})())
+    plumber.cmd_check(ns())
+    assert plumber.load_decisions() == []
+
+
+def test_skill_md_uses_ask_user_question():
+    # plumb:req-079b5c52
+    skill_md = Path(__file__).parent.parent.parent / ".claude" / "skills" / "plumber" / "SKILL.md"
+    assert "AskUserQuestion" in skill_md.read_text()
+
+
+def test_skill_md_never_auto_approves():
+    # plumb:req-92108d8e
+    skill_md = Path(__file__).parent.parent.parent / ".claude" / "skills" / "plumber" / "SKILL.md"
+    assert "NEVER approve, reject, or edit" in skill_md.read_text()
+
+
+def test_sync_updates_spec_bullet(patched_state):
+    # plumb:req-7ec7755f
+    req = make_req("The agent stores decisions in a file.", source_file="spec.md")
+    spec = patched_state / "spec.md"
+    spec.write_text(f"## Sec\n- {req['text']}\n")
+    dec = make_decision("dec-s1", req["id"], status="approved",
+                        decision="The agent stores decisions in decisions.jsonl.")
+    plumber.save_requirements([req])
+    plumber.save_decisions([dec])
+    (patched_state / ".plumb" / "config.json").write_text(
+        json.dumps({"spec_paths": ["spec.md"], "test_paths": [], "source_paths": []}))
+    (patched_state / ".plumb" / "gaps.json").write_text("[]")
+
+    plumber.cmd_sync(ns())
+    assert "decisions.jsonl" in spec.read_text()
+
+
+def test_sync_generates_test_stub(patched_state):
+    # plumb:req-1b82f41d
+    req = make_req("The agent stores decisions in a file.", source_file="spec.md")
+    spec = patched_state / "spec.md"
+    spec.write_text(f"## Sec\n- {req['text']}\n")
+    tests_dir = patched_state / "tests"
+    tests_dir.mkdir()
+    test_file = tests_dir / "test_foo.py"
+    test_file.write_text("")
+    dec = make_decision("dec-s2", req["id"], status="approved",
+                        decision="The agent stores decisions in decisions.jsonl.")
+    plumber.save_requirements([req])
+    plumber.save_decisions([dec])
+    (patched_state / ".plumb" / "config.json").write_text(
+        json.dumps({"spec_paths": ["spec.md"], "test_paths": [str(tests_dir)], "source_paths": []}))
+    (patched_state / ".plumb" / "gaps.json").write_text("[]")
+
+    plumber.cmd_sync(ns())
+    content = test_file.read_text()
+    assert "def test_" in content
+    assert f"# plumb:{req['id']}" in content
 
 
 def test_create_decision_appends_pending(patched_state):

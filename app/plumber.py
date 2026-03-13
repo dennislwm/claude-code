@@ -69,7 +69,8 @@ def load_config() -> dict:
     if not CONFIG_FILE.exists():
         STATE_DIR.mkdir(exist_ok=True)
         CONFIG_FILE.write_text(json.dumps(DEFAULT_CONFIG, indent=2))
-    return json.loads(CONFIG_FILE.read_text())
+        return DEFAULT_CONFIG.copy()
+    return {**DEFAULT_CONFIG, **json.loads(CONFIG_FILE.read_text())}
 
 
 def load_requirements() -> list:
@@ -331,6 +332,113 @@ def cmd_edit(args) -> None:
 
 
 # ---------------------------------------------------------------------------
+# sync
+# ---------------------------------------------------------------------------
+
+def cmd_sync(args) -> None:
+    config = load_config()
+    decisions = load_decisions()
+    approved = [d for d in decisions if d.get("status") == "approved"]
+
+    if not approved:
+        print("[plumber] No approved decisions to sync.")
+        return
+
+    reqs = {r["id"]: r for r in load_requirements()}
+    test_files = _collect_files(config.get("test_paths", []), (".py",))  # hoisted out of loop
+    spec_updates = 0
+    test_updates = 0
+    written_stubs: set = set()  # dedup guard: prevents duplicate test_<slug> functions
+
+    for dec in approved:
+        rid = dec.get("requirement_id")
+        if not rid or rid not in reqs:
+            continue
+        req = reqs[rid]
+
+        # 1. Update spec bullet (req-7ec7755f)
+        spec_path = PROJECT_ROOT / req["source_file"]
+        if spec_path.exists():
+            content = spec_path.read_text()
+            old = f"- {req['text']}"
+            new = f"- {dec['decision']}"
+            if old in content and old != new:
+                spec_path.write_text(content.replace(old, new, 1))
+                spec_updates += 1
+
+        # 2. Generate test stub (req-1b82f41d)
+        if test_files:
+            fn = re.sub(r"[^a-z0-9]+", "_", dec["decision"].lower())[:40].strip("_")
+            fn = fn or "stub"
+            if fn not in written_stubs:
+                stub = f'\ndef test_{fn}():\n    # plumb:{rid}\n    pass  # TODO: implement\n'
+                with test_files[0].open("a") as f:
+                    f.write(stub)
+                written_stubs.add(fn)
+                test_updates += 1
+
+    # Re-run gaps silently (req-82c7673a), suppress cmd_gaps stdout
+    gaps = compute_gaps(load_requirements(), config)
+    STATE_DIR.mkdir(exist_ok=True)
+    GAPS_FILE.write_text(json.dumps(gaps, indent=2))
+
+    print(f"[plumber] Sync: {spec_updates} spec sections updated, {test_updates} tests generated.")
+
+
+# ---------------------------------------------------------------------------
+# check (generate decisions from staged diff)
+# ---------------------------------------------------------------------------
+
+def cmd_check(args) -> None:
+    import subprocess
+    result = subprocess.run(
+        ["git", "diff", "--staged"],
+        capture_output=True, text=True, cwd=PROJECT_ROOT
+    )
+    diff = result.stdout
+    if not diff.strip():
+        print("[plumber] No staged changes.")
+        return
+
+    added_lines = [
+        line[1:] for line in diff.splitlines()
+        if line.startswith("+") and not line.startswith("+++")
+    ]
+    if not added_lines:
+        print("[plumber] No added lines in staged diff.")
+        return
+
+    diff_keywords = set(re.findall(r"[a-z]{4,}", " ".join(added_lines).lower())) - STOP_WORDS
+
+    reqs = load_requirements()
+    decisions = load_decisions()
+    existing_req_ids = {d.get("requirement_id") for d in decisions if d.get("status") == "pending"}
+
+    created = 0
+    for req in reqs:
+        req_kws = set(_keywords(req["text"]))
+        if req_kws & diff_keywords and req["id"] not in existing_req_ids:
+            did = f"dec-{hashlib.sha256((req['id'] + diff[:64]).encode()).hexdigest()[:8]}"
+            decisions.append({
+                "id": did,
+                "requirement_id": req["id"],
+                "question": f"Does this change affect: {req['text'][:80]}?",
+                "decision": "Staged changes overlap with this requirement.",
+                "made_by": "plumber",
+                "confidence": 0.6,
+                "status": "pending",
+                "created_at": now_iso(),
+                "resolved_at": None,
+            })
+            existing_req_ids.add(req["id"])
+            created += 1
+
+    if created:
+        save_decisions(decisions)
+    print(f"[plumber] check: {created} decision(s) created from staged diff.")
+
+
+# ---------------------------------------------------------------------------
 # coverage
 # ---------------------------------------------------------------------------
 
@@ -427,7 +535,9 @@ def build_parser() -> argparse.ArgumentParser:
     ep.add_argument("id")
     ep.add_argument("text")
 
+    sub.add_parser("check")
     sub.add_parser("coverage")
+    sub.add_parser("sync")
     sub.add_parser("stage")
 
     cd = sub.add_parser("create-decision")
@@ -448,7 +558,9 @@ COMMANDS = {
     "reject": cmd_reject,
     "ignore": cmd_ignore,
     "edit": cmd_edit,
+    "check": cmd_check,
     "coverage": cmd_coverage,
+    "sync": cmd_sync,
     "stage": cmd_stage,
     "create-decision": cmd_create_decision,
 }
