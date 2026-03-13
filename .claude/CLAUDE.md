@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with Python projects.
 
+> **Note:** Plumb workflow instructions are in the root `CLAUDE.md` (managed by Plumb via injection markers). Both files are intentionally separate: this file covers Python/GitHub tooling; the root covers spec/test/code sync rules.
+
 ## Basic Project Structure & Commands
 
 ### Environment Setup

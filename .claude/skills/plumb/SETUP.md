@@ -42,6 +42,22 @@ Patch `~/.local/pipx/venvs/plumb-dev/lib/python3.13/site-packages/plumb/programs
 
 4. Source before running plumb: `set -a && source .env && set +a`
 
+### Fixing the LLM dedup step (pre-commit hook)
+
+The decision deduplicator in the pre-commit hook defaults to Anthropic even when
+`PLUMB_MODEL` is set. Fix it by adding `program_models` to `.plumb/config.json`:
+
+```json
+"program_models": {
+  "decision_deduplicator": {
+    "model": "openai/gpt-4o-mini",
+    "max_tokens": 16384
+  }
+}
+```
+
+This overrides the deduplicator's model independently of `PLUMB_MODEL`.
+
 ## Spec File Format
 
 `plumb parse-spec` works reliably only on **clean, declarative bullet-point requirements**.

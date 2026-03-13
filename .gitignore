@@ -5,3 +5,4 @@ __pycache__/
 .plumb/gaps.json
 .plumb/code_coverage_map.json
 .plumb/coverage.json
+.plumb/requirements.json

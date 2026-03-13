@@ -1,0 +1,19 @@
+{
+  "spec_paths": [
+    "doc/spec.md"
+  ],
+  "test_paths": [
+    "app/tests/"
+  ],
+  "claude_log_path": null,
+  "initialized_at": "2026-03-12T12:29:19.604869+00:00",
+  "last_commit": "b560dd1eac0d92bf547618726e1648e1feacc98a",
+  "last_commit_branch": "main",
+  "last_extracted_at": "2026-03-13T01:31:26.327430+00:00",
+  "program_models": {
+    "decision_deduplicator": {
+      "model": "openai/gpt-4o-mini",
+      "max_tokens": 16384
+    }
+  }
+}
