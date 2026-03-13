@@ -2,11 +2,11 @@
 
 Plumber keeps the spec, tests, and code in sync using Claude's native
 reasoning — no plumb CLI required. All state lives in `.plumb/` using a
-standalone schema compatible with plumber.py's agent workflow.
+standalone schema compatible with the global `plumber` script.
 
-The helper script is installed globally as `plumber` (`~/.local/bin/plumber`),
-stdlib only, no pip install needed. Run `make setup` from the skills repo to
-install or update it.
+The global helper script lives at `~/.local/bin/plumber` (stdlib only,
+no pip install needed). Run it from any directory — it auto-discovers the
+project root by walking up from CWD to find `.plumb/`.
 
 > **Goal:** Plumber is designed to fully replace the plumb CLI. If you see
 > instructions referencing `plumb` commands, translate them to the equivalent
@@ -47,6 +47,19 @@ during review.
 If the pre-commit hook is installed (`plumber install-hook`), it fires
 automatically on every `git commit`. When the hook exits non-zero:
 
+> **Hook fix:** If the generated hook calls `python3 plumber.py` (common when
+> `pipenv` is active), replace `.git/hooks/pre-commit` with the correct form
+> that uses the global binary:
+> ```sh
+> #!/bin/sh
+> # Plumber pre-commit hook
+> cd "$(git rev-parse --show-toplevel)" || exit 1
+> output=$(plumber hook 2>&1)
+> exit_code=$?
+> echo "$output"
+> exit $exit_code
+> ```
+
 1. Parse the JSON from stdout — it has this shape:
    ```json
    {
@@ -63,16 +76,27 @@ automatically on every `git commit`. When the hook exits non-zero:
    }
    ```
 
-2. **Use `AskUserQuestion` (never plain text)** to present each decision:
-   ```
-   Plumber found [N] decision(s). Decision [X of N]:
-   Question: [question]
-   Decision: [decision]
-   Made by: [made_by] (confidence: [confidence])
-   ```
-   Options: **Approve** / **Approve with edits** / **Ignore** / **Reject**
+2. **Review all decisions and suggest an answer for each before asking the user.**
+   For each decision, compare the `question` and `decision` text against the
+   staged diff and the requirement it references:
+   - **Approve** — the change directly implements, fixes, or improves this requirement
+   - **Ignore** — the change is a refactor/cleanup that does not alter the requirement's
+     observable behaviour, or the decision is out of scope for this project
+   - **Reject** — the change contradicts or regresses the requirement
 
-3. Execute the user's selection:
+   Group decisions with the same suggested action into batches. Present each batch
+   in a single `AskUserQuestion` call showing the count, IDs, and your reasoning.
+   Never present decisions one-by-one when batching is possible.
+
+3. **Use `AskUserQuestion` (never plain text)** to present each batch:
+   ```
+   Batch [label] ([N] decisions) — [suggested action]:
+   [reasoning summary]
+   IDs: [comma-separated list]
+   ```
+   Options: **Apply as suggested** / **Skip for now**
+
+4. Execute the user's selection:
    - Approve: `plumber approve <id>`
    - Approve all: `plumber approve --all`
    - Approve with edits: `plumber edit <id> "<new text>"`
@@ -80,10 +104,10 @@ automatically on every `git commit`. When the hook exits non-zero:
    - Reject: `plumber reject <id> --reason "..."`
      Then use Read/Edit to revert the rejected change in the staged files.
 
-4. Run the **Sync Procedure** to update spec files and generate tests.
+5. Run the **Sync Procedure** to update spec files and generate tests.
    Stage all modified files with `plumber stage`.
 
-5. Re-run `git commit` with a message listing approved decision IDs and
+6. Re-run `git commit` with a message listing approved decision IDs and
    summaries. The hook fires again — if no pending decisions remain it exits 0.
 
 > **Do not commit if any decisions have `status: rejected`.** The rejected

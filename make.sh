@@ -121,6 +121,14 @@ function _install_local_bin {
   echo "[OK]   $label installed to $bin_path"
 }
 
+function _ensure_local_bin_in_path {
+  if ! echo "$PATH" | grep -q "$HOME/.local/bin"; then
+    echo "export PATH=\"\$PATH:$HOME/.local/bin\"" >> ~/.bash_profile
+    export PATH="$PATH:$HOME/.local/bin"
+    echo "[OK]   ~/.local/bin added to PATH via ~/.bash_profile"
+  fi
+}
+
 function setup_plumb_gaps {
   local base_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   _install_local_bin "$base_dir/common/plumb_gaps.py" plumb-gaps plumb-gaps || return 1
@@ -168,6 +176,45 @@ with open(path, "w") as f:
     f.write("\n")
 EOF
   echo "[OK]   plumb Stop hook added to $global_settings"
+}
+
+function check_coda {
+  _check_local_bin coda "coda wrapper"
+  [ "$(_binary_state coda "$HOME/.local/bin/coda")" = "in_path" ] || return 0
+  if [ -z "${CODA_API_KEY:-}" ]; then
+    echo "[WARN][$FUNCNAME]: CODA_API_KEY not set. Run 'make setup' or export it manually."
+  fi
+}
+
+function setup_coda {
+  local base_dir
+  base_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  local app_dir
+  app_dir="$(dirname "$base_dir")/13coda-cli/app"
+  local wrapper="$HOME/.local/bin/coda"
+  if [ -f "$wrapper" ]; then
+    echo "[SKIP] coda wrapper already exists at $wrapper"
+  else
+    mkdir -p "$HOME/.local/bin"
+    printf '#!/bin/sh\ncd %s\nexec pipenv run python coda.py "$@"\n' "$app_dir" > "$wrapper"
+    chmod +x "$wrapper"
+    echo "[OK]   coda wrapper installed to $wrapper"
+  fi
+  _ensure_local_bin_in_path
+  if [ -z "${CODA_API_KEY:-}" ]; then
+    echo "[INFO] CODA_API_KEY not set."
+    echo "       Find your key at coda.io/account > API Settings."
+    read -r -p "       Paste your Coda API key (leave blank to skip): " input_key
+    if [ -n "$input_key" ]; then
+      echo "export CODA_API_KEY=\"$input_key\"" >> ~/.bash_profile
+      export CODA_API_KEY="$input_key"
+      echo "[OK]   CODA_API_KEY saved to ~/.bash_profile"
+    else
+      echo "[SKIP] CODA_API_KEY not set."
+    fi
+  else
+    echo "[SKIP] CODA_API_KEY already set"
+  fi
 }
 
 function check_obsidian {
@@ -254,6 +301,7 @@ function show_status {
   check_bats || true
   check_uvx || true
   check_ledger || true
+  check_coda || true
   check_joplin || true
   check_obsidian || true
   check_plumb || true
@@ -268,6 +316,7 @@ function setup_commands {
   echo "=== Claude Code Skills Setup ==="
   check_gh
   check_bats
+  setup_coda
   setup_joplin
   setup_obsidian
   link_item "$base_dir/.claude/commands" "$HOME/.claude/commands"

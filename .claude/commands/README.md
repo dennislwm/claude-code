@@ -27,6 +27,12 @@ Additional `gh run` skills (`cancel`, `delete`, `download`, `list`, `rerun`, `wa
 |---|---|
 | `/ledger` | Run ledger CLI reports for balance, register, and spending analysis |
 
+## Coda Skills
+
+| Skill | Description |
+|---|---|
+| `/coda` | Translate natural language requests into Coda CLI commands and run them |
+
 ## Obsidian Skills
 
 | Skill | Description |
