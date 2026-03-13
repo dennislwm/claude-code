@@ -1,7 +1,7 @@
 PYTHON = pipenv run python3
 PYTEST = pipenv run pytest
 
-.PHONY: install test parse-spec gaps status decisions approve reject ignore edit coverage coverage-semantic stage create-decision preflight hook diff install-hook sync
+.PHONY: install test parse-spec gaps status decisions approve reject ignore edit coverage coverage-semantic stage create-decision preflight hook diff install-hook sync migrate
 
 install:
 	pipenv install --dev
@@ -56,6 +56,9 @@ install-hook:
 
 sync:
 	$(PYTHON) plumber.py sync
+
+migrate:
+	$(PYTHON) plumber.py migrate
 
 preflight:
 	$(PYTHON) plumber.py parse-spec

@@ -577,6 +577,72 @@ def cmd_coverage_semantic(args) -> None:
 
 
 # ---------------------------------------------------------------------------
+# migrate (plumb CLI → plumber)
+# ---------------------------------------------------------------------------
+
+def cmd_migrate(args) -> None:
+    """Migrate plumb CLI decisions (.plumb/decisions/) to plumber's decisions.jsonl."""
+    plumb_dir = STATE_DIR / "decisions"
+    if not plumb_dir.exists():
+        print("[plumber] No .plumb/decisions/ directory found. Nothing to migrate.",
+              file=sys.stderr)
+        return
+
+    if getattr(args, "all_branches", False):
+        sources = sorted(plumb_dir.glob("*.jsonl"))
+    else:
+        main = plumb_dir / "main.jsonl"
+        if not main.exists():
+            print(f"[plumber] {main} not found. Use --all-branches to scan all branch files.",
+                  file=sys.stderr)
+            return
+        sources = [main]
+
+    existing = load_decisions()
+    existing_ids = {d["id"] for d in existing}
+    migrated = []
+
+    for src in sources:
+        for line in src.read_text().splitlines():
+            if not line.strip():
+                continue
+            d = json.loads(line)
+            if d["id"] in existing_ids:
+                continue
+            migrated.append({
+                "id": d["id"],
+                "requirement_id": None,
+                "question": d.get("question", ""),
+                "decision": d.get("decision", ""),
+                "made_by": d.get("made_by", "llm"),
+                "confidence": d.get("confidence", 0.5),
+                "status": d.get("status", "pending"),
+                "created_at": d.get("created_at", now_iso()),
+                "resolved_at": d.get("reviewed_at"),
+                "reject_reason": d.get("rejection_reason"),
+            })
+            existing_ids.add(d["id"])
+
+    if not migrated:
+        print("[plumber] migrate: nothing new to migrate (all decisions already present).")
+        return
+
+    existing.extend(migrated)
+    save_decisions(existing)
+
+    pending = sum(1 for d in migrated if d["status"] == "pending")
+    resolved = len(migrated) - pending
+    null_req = sum(1 for d in migrated if not d["requirement_id"])
+
+    print(f"[plumber] Migrated {len(migrated)} decisions "
+          f"({pending} pending, {resolved} resolved) from {len(sources)} file(s).")
+    if null_req:
+        print(f"[plumber] Warning: {null_req} migrated decisions have requirement_id=null "
+              "and will not appear in coverage reports.")
+    print("[plumber] Next: run `make install-hook` to replace the plumb pre-commit hook.")
+
+
+# ---------------------------------------------------------------------------
 # create-decision
 # ---------------------------------------------------------------------------
 
@@ -652,6 +718,10 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("sync")
     sub.add_parser("stage")
 
+    mp = sub.add_parser("migrate")
+    mp.add_argument("--all-branches", action="store_true",
+                    help="Scan all *.jsonl branch files instead of main.jsonl only")
+
     cd = sub.add_parser("create-decision")
     cd.add_argument("--req-id", required=True)
     cd.add_argument("--question", required=True)
@@ -678,6 +748,7 @@ COMMANDS = {
     "coverage-semantic": cmd_coverage_semantic,
     "sync": cmd_sync,
     "stage": cmd_stage,
+    "migrate": cmd_migrate,
     "create-decision": cmd_create_decision,
 }
 
