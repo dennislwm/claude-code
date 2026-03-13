@@ -188,21 +188,16 @@ This reads `.plumb/code_coverage_map.json` (if plumb was run) or falls back to
 
 ## Command Reference
 
-| Plumb CLI command | Plumber equivalent | When to use |
-|---|---|---|
-| `plumb status` | `plumber status` | Start of session |
-| `plumb diff` | `plumber diff` | Before committing — preview decisions |
-| `plumb hook` | `plumber hook` | Pre-commit hook (auto-installed) |
-| `plumb parse-spec` | `plumber parse-spec` | Re-parse spec after manual edits |
-| `plumb gaps` | `plumber gaps` | Write `.plumb/gaps.json` |
-| `plumb approve <id>` | `plumber approve <id>` | User approves |
-| `plumb approve --all` | `plumber approve --all` | Approve all pending |
-| `plumb reject <id>` | `plumber reject <id> --reason "..."` | User rejects |
-| `plumb ignore <id>` | `plumber ignore <id>` | Mark not spec-relevant |
-| `plumb edit <id>` | `plumber edit <id> "<text>"` | Amend decision text |
-| `plumb sync` | `plumber sync` | After approving — update spec + tests |
-| `plumb coverage` | `plumber coverage` | Keyword-based coverage report |
-| *(no equivalent)* | `plumber coverage-semantic` | Semantic coverage (LLM or agent-native) |
-| *(no equivalent)* | `plumber install-hook` | Install git pre-commit hook |
-| *(no equivalent)* | `plumber stage` | Stage `.plumb/`, spec, test files |
-| *(create decision)* | `plumber create-decision --req-id <id> --question "..." --decision "..."` | Create pending decision |
+All standard `plumb` subcommands (`approve`, `reject`, `ignore`, `edit`,
+`parse-spec`, `gaps`, `status`, `decisions`, `sync`, `coverage`) are supported
+by `plumber` with identical arguments — just replace `plumb` with `plumber`.
+
+New commands with no `plumb` equivalent:
+
+| Command | When to use |
+|---|---|
+| `plumber coverage-semantic` | Semantic coverage (LLM or agent-native) |
+| `plumber install-hook` | Install git pre-commit hook |
+| `plumber stage` | Stage `.plumb/`, spec, test files |
+| `plumber migrate --all-branches` | Migrate from plumb decisions format |
+| `plumber create-decision --req-id <id> --question "..." --decision "..."` | Create pending decision |

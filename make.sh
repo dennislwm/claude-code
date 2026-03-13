@@ -109,41 +109,35 @@ function check_plumb {
 function check_plumb_gaps { _check_local_bin plumb-gaps; }
 function check_plumber    { _check_local_bin plumber; }
 
-function setup_plumb_gaps {
-  local base_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  local src="$base_dir/common/plumb_gaps.py"
-  local bin_path="$HOME/.local/bin/plumb-gaps"
+function _install_local_bin {
+  local src="$1" bin_path="$HOME/.local/bin/$2" label="$3"
   if [ ! -f "$src" ]; then
-    echo "[ERROR][$FUNCNAME]: $src not found."
+    echo "[ERROR][$label]: $src not found."
     return 1
   fi
   mkdir -p "$HOME/.local/bin"
   cp "$src" "$bin_path"
   chmod +x "$bin_path"
-  echo "[OK]   plumb-gaps installed to $bin_path"
+  echo "[OK]   $label installed to $bin_path"
+}
+
+function setup_plumb_gaps {
+  local base_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  _install_local_bin "$base_dir/common/plumb_gaps.py" plumb-gaps plumb-gaps || return 1
   # Copy to target project if TARGET_PROJECT is set and has .plumb/ initialized
   local target="${TARGET_PROJECT:-}"
   if [ -n "$target" ] && [ -d "$target/.plumb" ]; then
-    cp "$src" "$target/plumb_gaps.py"
+    cp "$base_dir/common/plumb_gaps.py" "$target/plumb_gaps.py"
     echo "[OK]   plumb_gaps.py copied to $target/"
   else
     echo "[INFO] To add plumb_gaps.py to a project: TARGET_PROJECT=/path/to/project make setup"
-    echo "       or: cp $bin_path /path/to/project/plumb_gaps.py"
+    echo "       or: cp $HOME/.local/bin/plumb-gaps /path/to/project/plumb_gaps.py"
   fi
 }
 
 function setup_plumber {
   local base_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  local src="$base_dir/app/plumber.py"
-  local bin_path="$HOME/.local/bin/plumber"
-  if [ ! -f "$src" ]; then
-    echo "[ERROR][$FUNCNAME]: $src not found."
-    return 1
-  fi
-  mkdir -p "$HOME/.local/bin"
-  cp "$src" "$bin_path"
-  chmod +x "$bin_path"
-  echo "[OK]   plumber installed to $bin_path"
+  _install_local_bin "$base_dir/app/plumber.py" plumber plumber
 }
 
 function setup_plumb_hook {

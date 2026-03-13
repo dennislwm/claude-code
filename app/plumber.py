@@ -63,8 +63,6 @@ BULLET_RE = re.compile(r"^[ \t]*[-*+]\s+(.+)$", re.MULTILINE)
 HEADING_RE = re.compile(r"^#{1,6}\s+(.+)$")
 SKIP_RE = re.compile(r"^(TODO|NOTE|FIXME|TBD)\b", re.IGNORECASE)
 
-# Default decision text produced by the keyword hook — not a valid spec restatement
-_HOOK_DECISION_TEXT = "Staged changes overlap with this requirement."
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -370,7 +368,7 @@ def cmd_sync(args) -> None:
         req = reqs[rid]
 
         # Skip generic hook placeholder — not a meaningful spec restatement
-        if dec.get("decision") == _HOOK_DECISION_TEXT:
+        if dec.get("source") == "hook":
             continue
 
         # 1. Update spec bullet (req-7ec7755f)
@@ -433,6 +431,7 @@ def _check_diff(diff: str, existing_decisions: list | None = None) -> list:
                 "made_by": "plumber",
                 "confidence": 0.6,
                 "status": "pending",
+                "source": "hook",
                 "created_at": now_iso(),
                 "resolved_at": None,
             })
@@ -440,14 +439,15 @@ def _check_diff(diff: str, existing_decisions: list | None = None) -> list:
     return created
 
 
+def _get_staged_diff() -> str:
+    return subprocess.run(["git", "diff", "--staged"],
+                          capture_output=True, text=True, cwd=PROJECT_ROOT).stdout
+
+
 def _run_staged_diff_and_save() -> tuple[list, list]:
     """Run git diff --staged, create and save new decisions, return (all_decisions, new_decisions)."""
-    result = subprocess.run(
-        ["git", "diff", "--staged"],
-        capture_output=True, text=True, cwd=PROJECT_ROOT
-    )
     all_decisions = load_decisions()
-    new_decisions = _check_diff(result.stdout, all_decisions)
+    new_decisions = _check_diff(_get_staged_diff(), all_decisions)
     if new_decisions:
         all_decisions.extend(new_decisions)
         save_decisions(all_decisions)
@@ -470,13 +470,9 @@ def cmd_hook(args) -> None:
 
 def cmd_diff(args) -> None:
     """Preview decisions that would be created from staged diff, without saving."""
-    result = subprocess.run(
-        ["git", "diff", "--staged"],
-        capture_output=True, text=True, cwd=PROJECT_ROOT
-    )
     all_decisions = load_decisions()
     existing_pending = [d for d in all_decisions if d.get("status") == "pending"]
-    preview = _check_diff(result.stdout, all_decisions)
+    preview = _check_diff(_get_staged_diff(), all_decisions)
     total = len(preview) + len(existing_pending)
     print(f"[plumber] diff: {total} decision(s) would be pending "
           f"({len(existing_pending)} existing + {len(preview)} new)")
@@ -493,16 +489,8 @@ def cmd_install_hook(args) -> None:
         sys.exit(1)
     script = (
         "#!/bin/sh\n"
-        "# Plumber pre-commit hook — auto-installed by plumber.py install-hook\n"
-        "cd \"$(git rev-parse --show-toplevel)/app\" || exit 1\n"
-        "if command -v pipenv >/dev/null 2>&1; then\n"
-        "  output=$(pipenv run python3 plumber.py hook 2>&1)\n"
-        "else\n"
-        "  output=$(python3 plumber.py hook 2>&1)\n"
-        "fi\n"
-        "exit_code=$?\n"
-        "echo \"$output\"\n"
-        "exit $exit_code\n"
+        "# Plumber pre-commit hook — auto-installed by plumber install-hook\n"
+        "plumber hook\n"
     )
     hook_path.write_text(script)
     hook_path.chmod(0o755)
