@@ -26,10 +26,20 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
-# Paths (relative to project root, one level up from app/)
+# Paths — discover project root by walking up from CWD to find .plumb/
 # ---------------------------------------------------------------------------
 
-PROJECT_ROOT = Path(__file__).parent.parent
+def _find_project_root() -> Path:
+    """Walk up from CWD to find the directory containing .plumb/.
+    Falls back to script's grandparent dir for legacy in-project invocation."""
+    p = Path.cwd()
+    while p != p.parent:
+        if (p / ".plumb").exists():
+            return p
+        p = p.parent
+    return Path(__file__).parent.parent
+
+PROJECT_ROOT = _find_project_root()
 STATE_DIR = PROJECT_ROOT / ".plumb"
 CONFIG_FILE = STATE_DIR / "config.json"
 REQUIREMENTS_FILE = STATE_DIR / "requirements.json"
@@ -409,7 +419,7 @@ def _check_diff(diff: str, existing_decisions: list | None = None) -> list:
     diff_keywords = set(re.findall(r"[a-z]{4,}", " ".join(added_lines).lower())) - STOP_WORDS
     if existing_decisions is None:
         existing_decisions = load_decisions()
-    existing_req_ids = {d.get("requirement_id") for d in existing_decisions if d.get("status") == "pending"}
+    existing_req_ids = {d.get("requirement_id") for d in existing_decisions if d.get("status") in ("pending", "approved", "ignored")}
     created = []
     for req in load_requirements():
         req_kws = set(_keywords(req["text"]))

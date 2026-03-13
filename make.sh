@@ -30,6 +30,17 @@ function _binary_state {
   fi
 }
 
+# Check a binary installed to ~/.local/bin
+function _check_local_bin {
+  local cmd="$1" label="${2:-$1}"
+  local bin_path="$HOME/.local/bin/$cmd"
+  case "$(_binary_state "$cmd" "$bin_path")" in
+    in_path)           echo "[OK]   $label installed ($($cmd --version 2>&1 | head -1 || echo 'no version'))" ;;
+    found_not_in_path) echo "[WARN][$label]: found at $bin_path but not in PATH." ;;
+    not_installed)     echo "[NONE][$label]: not installed. Run 'make setup' to install." ;;
+  esac
+}
+
 function check_joplin {
   local go_bin="$HOME/go/bin"
   case "$(_binary_state joplin-butler "$go_bin/joplin-butler")" in
@@ -87,6 +98,7 @@ function setup_joplin {
 function check_plumb {
   command -v plumb > /dev/null 2>&1 || { echo "[WARN][$FUNCNAME]: plumb not installed. Run 'make plumb-install'."; return 0; }
   echo "[OK]   plumb found ($(plumb --version 2>&1 | head -1))"
+  echo "[INFO] plumb is being phased out; plumber is the replacement."
   if [ -d ".plumb" ]; then
     echo "[OK]   .plumb initialized in current directory"
   else
@@ -94,20 +106,13 @@ function check_plumb {
   fi
 }
 
-function check_plumb_gaps {
-  local bin_path="$HOME/.local/bin/plumb-gaps"
-  case "$(_binary_state plumb-gaps "$bin_path")" in
-    in_path)          echo "[OK]   plumb-gaps installed ($(plumb-gaps --version 2>&1 | head -1 || echo 'no version'))" ;;
-    found_not_in_path) echo "[WARN][$FUNCNAME]: plumb-gaps found at $bin_path but not in PATH." ;;
-    not_installed)    echo "[NONE][$FUNCNAME]: plumb-gaps not installed. Run 'make setup' to install." ;;
-  esac
-}
+function check_plumb_gaps { _check_local_bin plumb-gaps; }
+function check_plumber    { _check_local_bin plumber; }
 
 function setup_plumb_gaps {
   local base_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   local src="$base_dir/common/plumb_gaps.py"
   local bin_path="$HOME/.local/bin/plumb-gaps"
-  # Install globally
   if [ ! -f "$src" ]; then
     echo "[ERROR][$FUNCNAME]: $src not found."
     return 1
@@ -125,6 +130,20 @@ function setup_plumb_gaps {
     echo "[INFO] To add plumb_gaps.py to a project: TARGET_PROJECT=/path/to/project make setup"
     echo "       or: cp $bin_path /path/to/project/plumb_gaps.py"
   fi
+}
+
+function setup_plumber {
+  local base_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  local src="$base_dir/app/plumber.py"
+  local bin_path="$HOME/.local/bin/plumber"
+  if [ ! -f "$src" ]; then
+    echo "[ERROR][$FUNCNAME]: $src not found."
+    return 1
+  fi
+  mkdir -p "$HOME/.local/bin"
+  cp "$src" "$bin_path"
+  chmod +x "$bin_path"
+  echo "[OK]   plumber installed to $bin_path"
 }
 
 function setup_plumb_hook {
@@ -245,6 +264,7 @@ function show_status {
   check_obsidian || true
   check_plumb || true
   check_plumb_gaps || true
+  check_plumber || true
   check_link
   echo "=============="
 }
@@ -260,5 +280,6 @@ function setup_commands {
   link_item "$base_dir/.claude/agents" "$HOME/.claude/agents"
   setup_plumb_hook
   setup_plumb_gaps
+  setup_plumber
   echo "================================"
 }
