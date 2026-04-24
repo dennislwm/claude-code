@@ -295,6 +295,60 @@ function list_items {
   [ "$found" -eq 0 ] && echo "  (none)" || true
 }
 
+function check_settings {
+  local global_settings="$HOME/.claude/settings.json"
+  if [ ! -f "$global_settings" ]; then
+    echo "[NONE][$FUNCNAME]: $global_settings not found. Safety deny list not active."
+    return 0
+  fi
+  local deny_count
+  deny_count=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(len(d.get('permissions',{}).get('deny',[])))" "$global_settings" 2>/dev/null || echo 0)
+  if [ "$deny_count" -gt 0 ]; then
+    echo "[OK]   $global_settings found ($deny_count deny rules active)"
+  else
+    echo "[WARN][$FUNCNAME]: $global_settings exists but has no deny rules."
+  fi
+}
+
+function setup_settings {
+  local base_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  local src="$base_dir/.claude/settings.json"
+  local global_settings="$HOME/.claude/settings.json"
+  if [ ! -f "$src" ]; then
+    echo "[ERROR][$FUNCNAME]: $src not found."
+    return 1
+  fi
+  command -v python3 > /dev/null 2>&1 || { echo "[ERROR][$FUNCNAME]: python3 not found."; return 1; }
+  if [ ! -f "$global_settings" ]; then
+    echo "[WARN][$FUNCNAME]: $global_settings not found. Create it manually or run Claude Code once first."
+    return 0
+  fi
+  local src_count
+  src_count=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(len(d.get('permissions',{}).get('deny',[])))" "$src" 2>/dev/null || echo 0)
+  local dest_count
+  dest_count=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(len(d.get('permissions',{}).get('deny',[])))" "$global_settings" 2>/dev/null || echo 0)
+  if [ "$src_count" -gt 0 ] && [ "$dest_count" -ge "$src_count" ]; then
+    echo "[SKIP] deny rules already present in $global_settings"
+    return 0
+  fi
+  python3 - "$src" "$global_settings" <<'EOF'
+import json, sys
+src_path, dest_path = sys.argv[1], sys.argv[2]
+with open(src_path) as f:
+    src = json.load(f)
+with open(dest_path) as f:
+    dest = json.load(f)
+src_deny = src.get("permissions", {}).get("deny", [])
+dest_deny = dest.setdefault("permissions", {}).setdefault("deny", [])
+added = [r for r in src_deny if r not in dest_deny]
+dest_deny.extend(added)
+with open(dest_path, "w") as f:
+    json.dump(dest, f, indent=2)
+    f.write("\n")
+print(f"[OK]   {len(added)} new deny rule(s) merged into {dest_path}")
+EOF
+}
+
 function show_status {
   echo "=== Status ==="
   check_gh
@@ -307,6 +361,7 @@ function show_status {
   check_plumb || true
   check_plumb_gaps || true
   check_plumber || true
+  check_settings || true
   check_link
   echo "=============="
 }
@@ -324,5 +379,6 @@ function setup_commands {
   setup_plumb_hook
   setup_plumb_gaps
   setup_plumber
+  setup_settings
   echo "================================"
 }
