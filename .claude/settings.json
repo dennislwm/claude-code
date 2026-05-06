@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "jq '.input.url |= if startswith(\"https://r.jina.ai/\") then . else \"https://r.jina.ai/\" + . end'"
+            "command": "jq '.tool_input.url |= if startswith(\"https://r.jina.ai/\") then . else \"https://r.jina.ai/\" + . end'"
           }
         ]
       }
