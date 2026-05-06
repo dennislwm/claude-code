@@ -160,21 +160,9 @@ function setup_plumb_hook {
     echo "[WARN][$FUNCNAME]: $global_settings not found. Create it manually or run Claude Code once first."
     return 0
   fi
-  command -v python3 > /dev/null 2>&1 || { echo "[ERROR][$FUNCNAME]: python3 not found. Cannot merge hook into $global_settings."; return 1; }
-  # Use python3 to merge the hook into existing settings JSON
-  python3 - "$global_settings" "$hook_cmd" <<'EOF'
-import json, sys
-path, cmd = sys.argv[1], sys.argv[2]
-with open(path) as f:
-    s = json.load(f)
-hooks = s.setdefault("hooks", {})
-stop = hooks.setdefault("Stop", [])
-entry = {"hooks": [{"type": "command", "command": cmd}]}
-stop.append(entry)
-with open(path, "w") as f:
-    json.dump(s, f, indent=2)
-    f.write("\n")
-EOF
+  command -v jq > /dev/null 2>&1 || { echo "[ERROR][$FUNCNAME]: jq not found. Cannot merge hook into $global_settings."; return 1; }
+  local tmp
+  tmp=$(jq --arg cmd "$hook_cmd" '.hooks.Stop += [{"hooks": [{"type": "command", "command": $cmd}]}]' "$global_settings") && echo "$tmp" > "$global_settings"
   echo "[OK]   plumb Stop hook added to $global_settings"
 }
 
@@ -302,7 +290,7 @@ function check_settings {
     return 0
   fi
   local deny_count
-  deny_count=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(len(d.get('permissions',{}).get('deny',[])))" "$global_settings" 2>/dev/null || echo 0)
+  deny_count=$(jq '(.permissions.deny // []) | length' "$global_settings" 2>/dev/null || echo 0)
   if [ "$deny_count" -gt 0 ]; then
     echo "[OK]   $global_settings found ($deny_count deny rules active)"
   else
@@ -318,35 +306,23 @@ function setup_settings {
     echo "[ERROR][$FUNCNAME]: $src not found."
     return 1
   fi
-  command -v python3 > /dev/null 2>&1 || { echo "[ERROR][$FUNCNAME]: python3 not found."; return 1; }
+  command -v jq > /dev/null 2>&1 || { echo "[ERROR][$FUNCNAME]: jq not found."; return 1; }
   if [ ! -f "$global_settings" ]; then
     echo "[WARN][$FUNCNAME]: $global_settings not found. Create it manually or run Claude Code once first."
     return 0
   fi
-  local src_count
-  src_count=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(len(d.get('permissions',{}).get('deny',[])))" "$src" 2>/dev/null || echo 0)
-  local dest_count
-  dest_count=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(len(d.get('permissions',{}).get('deny',[])))" "$global_settings" 2>/dev/null || echo 0)
-  if [ "$src_count" -gt 0 ] && [ "$dest_count" -ge "$src_count" ]; then
-    echo "[SKIP] deny rules already present in $global_settings"
-    return 0
-  fi
-  python3 - "$src" "$global_settings" <<'EOF'
-import json, sys
-src_path, dest_path = sys.argv[1], sys.argv[2]
-with open(src_path) as f:
-    src = json.load(f)
-with open(dest_path) as f:
-    dest = json.load(f)
-src_deny = src.get("permissions", {}).get("deny", [])
-dest_deny = dest.setdefault("permissions", {}).setdefault("deny", [])
-added = [r for r in src_deny if r not in dest_deny]
-dest_deny.extend(added)
-with open(dest_path, "w") as f:
-    json.dump(dest, f, indent=2)
-    f.write("\n")
-print(f"[OK]   {len(added)} new deny rule(s) merged into {dest_path}")
-EOF
+  local tmp
+  tmp=$(jq -s '
+    .[0] as $src | .[1] as $dest |
+    $dest |
+    .permissions.deny  = (($dest.permissions.deny  // []) + ($src.permissions.deny  // []) | unique) |
+    .permissions.allow = (($dest.permissions.allow // []) + ($src.permissions.allow // []) | unique) |
+    reduce ($src.hooks // {} | to_entries[]) as $evt (
+      .;
+      .hooks[$evt.key] = ((.hooks[$evt.key] // []) + $evt.value | unique)
+    )
+  ' "$src" "$global_settings") && echo "$tmp" > "$global_settings"
+  echo "[OK]   settings merged into $global_settings"
 }
 
 function show_status {
