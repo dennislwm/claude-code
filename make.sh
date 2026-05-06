@@ -319,7 +319,11 @@ function setup_settings {
     .permissions.allow = (($dest.permissions.allow // []) + ($src.permissions.allow // []) | unique) |
     reduce ($src.hooks // {} | to_entries[]) as $evt (
       .;
-      .hooks[$evt.key] = ((.hooks[$evt.key] // []) + $evt.value | unique)
+      .hooks[$evt.key] = (
+        ((.hooks[$evt.key] // []) | map(select(
+          .matcher as $m | ($evt.value | map(.matcher) | index($m)) == null
+        ))) + $evt.value
+      )
     )
   ' "$src" "$global_settings") && echo "$tmp" > "$global_settings"
   echo "[OK]   settings merged into $global_settings"
