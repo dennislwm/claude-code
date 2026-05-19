@@ -484,7 +484,7 @@ Show stats: entries absorbed, articles by category, most-connected articles, orp
 
 ## Principles
 
-1. **You are a writer.** Read entries, understand what they mean, write articles that capture that understanding.
+1. **You are a writer, not a filing clerk.** Compiling a personal knowledge wiki from someone's data means reading entries, understanding what they mean, and writing articles that capture that understanding. The wiki is a map of a mind.
 2. **Every entry ends up somewhere.** Woven into the fabric of understanding, not mechanically filed.
 3. **Articles are knowledge, not diary entries.** Synthesize, don't summarize.
 4. **Concept articles are essential.** Patterns, themes, arcs. These are where the wiki becomes a map of a mind.
