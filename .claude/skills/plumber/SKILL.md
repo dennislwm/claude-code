@@ -9,8 +9,51 @@ no pip install needed). Run it from any directory — it auto-discovers the
 project root by walking up from CWD to find `.plumb/`.
 
 > **Goal:** Plumber is designed to fully replace the plumb CLI. If you see
-> instructions referencing `plumb` commands, translate them to the equivalent
-> `plumber` subcommand listed in the Command Reference below.
+> instructions referencing `plumb` commands, use the global `plumber` command
+> instead (e.g. `plumb status` → `plumber status`).
+
+## Migrating from plumb
+
+When a project's CLAUDE.md still references `plumb` commands, migrate in
+**three steps** — no exploration required:
+
+```bash
+# Step 1 — migrate existing decisions
+plumber migrate --all-branches
+
+# Step 2 — update CLAUDE.md
+# Replace the <!-- plumb:start --> … <!-- plumb:end --> block (or any section
+# referencing `plumb` commands) with the standard Plumber section below.
+
+# Step 3 (optional) — install the pre-commit hook
+plumber install-hook
+```
+
+**Standard CLAUDE.md Plumber section** (paste in, adjusting spec/test paths):
+
+```markdown
+## Plumber (Spec/Test/Code Sync)
+
+This project uses Plumber to keep the spec, tests, and code in sync.
+
+- **Spec:** doc/spec.md
+- **Tests:** app/tests/
+- **Decision log:** `.plumb/decisions.jsonl`
+
+### When working in this project:
+
+- Source `app/.env` once at the start of the session before running any plumber command.
+- Run `plumber status` before beginning work to understand current alignment.
+- Run `plumber diff` before committing to preview pending decisions.
+- When `git commit` is intercepted by Plumber, **use `AskUserQuestion`** to present
+  each pending decision. Options: Approve, Approve with edits, Ignore, Reject.
+  **NEVER approve, reject, or edit decisions on the user's behalf.**
+- After all decisions are resolved, run `plumber sync` to update the spec and
+  generate tests, then re-run `git commit`.
+- Use `plumber coverage` to identify what needs to be implemented or tested next.
+- Never edit `.plumb/decisions.jsonl` directly — use `plumber` subcommands.
+- Treat the spec markdown files as the source of truth for intended behavior.
+```
 
 ## Before Starting Work
 
@@ -118,7 +161,7 @@ automatically on every `git commit`. When the hook exits non-zero:
 
 This replaces `plumb sync`. Claude performs the sync using Read, Grep, and
 Edit/Write tools directly — no external LLM pipeline. Alternatively, run
-`plumber sync` for an automated version.
+`cd app && make sync` for an automated version.
 
 ### Step 1 — Load approved decisions
 
@@ -178,8 +221,8 @@ plumber create-decision \
 
 Present these to the user via `AskUserQuestion` before committing.
 
-The keyword-based `plumber hook` provides an automated first pass;
-Claude's own reasoning is the authoritative source and should supplement it.
+The keyword-based `plumber check` / `plumber hook` provides an automated first
+pass; Claude's own reasoning is the authoritative source and should supplement it.
 
 ## After Committing
 
@@ -187,7 +230,7 @@ Run `plumber coverage` and briefly report the three coverage dimensions:
 spec-to-test, spec-to-code, and decision resolution rate. Flag any gaps that
 should be addressed before the next commit.
 
-For deeper coverage analysis (no plumb CLI required):
+For deeper coverage analysis:
 ```bash
 plumber coverage-semantic
 ```
@@ -206,7 +249,7 @@ This reads `.plumb/code_coverage_map.json` (if plumb was run) or falls back to
   edit spec files manually to resolve decisions.
 - Before running `parse-spec`, note the current requirement count. If the
   result is 0, retry once. If still 0, report the failure and stop.
-- `plumber` uses stdlib only. Never add third-party imports to it.
+- The global `plumber` script (`~/.local/bin/plumber`) uses stdlib only. Never add third-party imports to it.
 - Do not commit if any decisions have `status: rejected`. Revert the change
   first using Read/Edit, then re-stage.
 

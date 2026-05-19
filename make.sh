@@ -235,7 +235,7 @@ function setup_obsidian {
 }
 
 function check_link {
-  for subdir in commands agents; do
+  for subdir in commands agents skills; do
     local dest="$HOME/.claude/$subdir"
     if [ -L "$dest" ]; then
       echo "[OK]   ~/.claude/$subdir symlink exists"
@@ -356,6 +356,7 @@ function setup_commands {
   setup_obsidian
   link_item "$base_dir/.claude/commands" "$HOME/.claude/commands"
   link_item "$base_dir/.claude/agents" "$HOME/.claude/agents"
+  link_item "$base_dir/.claude/skills" "$HOME/.claude/skills"
   setup_plumb_hook
   setup_plumb_gaps
   setup_plumber
