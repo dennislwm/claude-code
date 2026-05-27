@@ -1,5 +1,9 @@
 # Project Instructions
 
+## Project-Local .claude/ Directory
+
+Always use the **project-local** `.claude/` directory for skills, hooks, commands, agents, settings, and any other Claude config files. Never modify `~/.claude/` (the global user folder) when working in this project.
+
 <!-- plumb:start -->
 ## Spec/Test/Code Sync (Plumber)
 
