@@ -245,6 +245,14 @@ function check_link {
       echo "[NONE][$FUNCNAME]: ~/.claude/$subdir not set up"
     fi
   done
+  local claude_md="$HOME/.claude/CLAUDE.md"
+  if [ -L "$claude_md" ]; then
+    echo "[OK]   ~/.claude/CLAUDE.md symlink exists"
+  elif [ -e "$claude_md" ]; then
+    echo "[WARN][$FUNCNAME]: Real file (not symlink) exists at $claude_md"
+  else
+    echo "[NONE][$FUNCNAME]: ~/.claude/CLAUDE.md not set up"
+  fi
 }
 
 function link_item {
@@ -258,8 +266,8 @@ function link_item {
     echo "[SKIP] Symlink already exists at $dest"
     return 0
   fi
-  if [ -d "$dest" ]; then
-    echo "[WARN][$FUNCNAME]: Real directory already exists at $dest, skipping"
+  if [ -e "$dest" ] && [ ! -L "$dest" ]; then
+    echo "[WARN][$FUNCNAME]: Real file or directory already exists at $dest, skipping"
     return 0
   fi
   mkdir -p "$(dirname "$dest")"
@@ -357,6 +365,7 @@ function setup_commands {
   link_item "$base_dir/.claude/commands" "$HOME/.claude/commands"
   link_item "$base_dir/.claude/agents" "$HOME/.claude/agents"
   link_item "$base_dir/.claude/skills" "$HOME/.claude/skills"
+  link_item "$base_dir/.claude/global/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
   setup_plumb_hook
   setup_plumb_gaps
   setup_plumber
