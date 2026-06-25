@@ -6,3 +6,4 @@
 - No emojis or em-dashes.
 - Do not guess APIs, versions, flags, commit SHAs, or package names. Verify by reading code or docs before asserting.
 - If there are significant tensions, raise the issue to the user instead of making a decision based on assumptions.
+- When deleting files tracked by git, use `git rm <file>` not `rm`. Plain `rm` leaves the deletion unstaged. If already deleted with `rm`, `git rm <path>` still stages it.
