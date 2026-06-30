@@ -31,6 +31,26 @@ The question is never "where do I put this fact?" It is: **"what does this mean,
 
 ---
 
+## Project Extensions
+
+Before handling any `/wiki` command, scan the active project's `CLAUDE.md`
+for sections that define project-specific subcommands. Look for section
+headers containing `/wiki <subcommand>` as a trigger phrase (e.g.
+`## Bookmarks workflow (/wiki bookmarks.json)` or `## /wiki radar command`).
+
+If a matching section exists, dispatch to those instructions. Project
+handlers take precedence over generic handlers below.
+
+When the command is unrecognized (e.g. `/wiki hi`), output:
+
+**Generic commands:** ingest | absorb [date-range] | query <question> |
+cleanup | breakdown | rebuild-index | reorganize | status
+
+**Project commands:** list any `/wiki <subcommand>` handlers found in
+CLAUDE.md, or "none defined" if absent.
+
+---
+
 ## Directory Structure
 
 ```
