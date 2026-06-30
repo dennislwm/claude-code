@@ -7,3 +7,5 @@
 - Do not guess APIs, versions, flags, commit SHAs, or package names. Verify by reading code or docs before asserting.
 - If there are significant tensions, raise the issue to the user instead of making a decision based on assumptions.
 - When deleting files tracked by git, use `git rm <file>` not `rm`. Plain `rm` leaves the deletion unstaged. If already deleted with `rm`, `git rm <path>` still stages it.
+- For JSON parsing in CLI pipelines, use `jq` or tool-native `--jq` flags. Never pipe CLI output to `python3 -c` for JSON parsing -- interpreter pipelines trigger permission prompts. For base64-encoded content, pipe to `base64 -d`.
+- When presenting options or making choices, apply this ladder first and label the winner before showing alternatives: (1) does this need to exist at all? (2) already in this codebase? (3) stdlib? (4) native platform feature? (5) already-installed dependency? (6) can it be one line? (7) only then: minimum code that works. Never list options as neutral -- pick one.
