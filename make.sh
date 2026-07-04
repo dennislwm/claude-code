@@ -148,6 +148,18 @@ function setup_plumber {
   _install_local_bin "$base_dir/app/plumber.py" plumber plumber
 }
 
+function plumb_uninstall_device {
+  if [ -d .plumb ]; then
+    echo "[WARN] .plumb/ found in $(pwd) — run 'make plumb-uninit' here first, or confirm other projects don't need plumb before continuing"
+    return 1
+  fi
+  pipx uninstall plumb-dev
+  rm -f ~/.local/bin/plumb ~/.local/bin/plumb-gaps ~/.local/bin/plumber
+  jq '.hooks.Stop |= map(select(.hooks[]?.command | test("plumb") | not))' ~/.claude/settings.json > /tmp/settings.json.tmp \
+    && mv /tmp/settings.json.tmp ~/.claude/settings.json
+  echo "[OK]   removed plumb-dev, ~/.local/bin/{plumb,plumb-gaps,plumber}, and Stop hook"
+}
+
 function setup_plumb_hook {
   local global_settings="$HOME/.claude/settings.json"
   local hook_cmd='[ -d .plumb ] && plumb extract --auto && plumb review || true'

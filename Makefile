@@ -1,4 +1,4 @@
-.PHONY: help setup status test plumb-install plumb-uninit
+.PHONY: help setup status test plumb-install plumb-uninit plumb-uninstall
 SHELL := /bin/bash
 PLUMB_VERSION := 0.2.4
 
@@ -10,7 +10,8 @@ help:
 	@echo "  status        Check if the local machine has already been set up"
 	@echo "  test          Run all unit tests"
 	@echo "  plumb-install Install plumb-dev==$(PLUMB_VERSION) via pipx"
-	@echo "  plumb-uninit  Remove Plumb hooks and data from this project"
+	@echo "  plumb-uninit  Remove Plumb hooks and data from this project (run before plumb-uninstall)"
+	@echo "  plumb-uninstall Remove plumb-dev, ~/.local/bin shims, and the global Stop hook (run after plumb-uninit)"
 	@echo ""
 	@source ./make.sh && \
 		echo "=== Skills ===" && list_items .claude/commands / 28 && echo "" && \
@@ -33,3 +34,6 @@ plumb-uninit:
 	rm -f .git/hooks/pre-commit .git/hooks/post-commit
 	rm -rf .plumb/
 	rm -f .plumbignore
+
+plumb-uninstall:
+	@source ./make.sh && plumb_uninstall_device
