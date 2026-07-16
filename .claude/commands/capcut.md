@@ -3,7 +3,7 @@ description: Translate natural language requests into capcut-cli commands and ru
 allowed-tools: Bash
 ---
 
-Use capcut-cli to answer `$ARGUMENTS`. Trust `capcut <cmd> --help` over this file.
+Use capcut-cli to answer `$ARGUMENTS`. Trust `capcut describe` over this file.
 
 ## Step 1: Verify prerequisites
 
@@ -21,9 +21,11 @@ Do not attempt any edit until `doctor` passes.
 
 ## Step 2: Interpret, classify, and execute
 
-Run `capcut describe` (full spec as JSON) or `capcut <cmd> --help` for the command
-surface. `<project>` is a filesystem path to the draft folder (or its `draft_info.json`),
-not the bare folder name — get it from the `path` field of `capcut projects`.
+Run `capcut describe` for the command surface (full spec as JSON; filter one command
+with `jq '.commands[]|select(.name=="<cmd>")'`) or `capcut --help` for top-level usage.
+Per-command `capcut <cmd> --help` does NOT work — it reads `--help` as the project arg.
+`<project>` is a filesystem path to the draft folder (or its `draft_info.json`), not the
+bare folder name — get it from the `path` field of `capcut projects`.
 
 - **Read-only** (`info`, `segments`, `texts`, `timeline`, `lint`, `export-srt`,
   `diff`, `projects`): run directly.
@@ -33,13 +35,22 @@ not the bare folder name — get it from the `path` field of `capcut projects`.
   edits), confirm with the user first.
 - **Natural language**: translate to the best-fit command, classify as above,
   run with a one-line explanation.
-- **Empty `$ARGUMENTS`**: run `capcut projects` to list drafts on disk.
+- **Empty `$ARGUMENTS`**: run `capcut projects` to list drafts, then walk the user
+  through the Flow below. Existing drafts may predate this skill, so their presence
+  is not a sign of familiarity.
+
+There is no `split` command. To slice one source into N segments, `add-video` it N
+times, then `trim <project> <id> <source-start> <duration>` each — `trim`'s `<start>`
+is the source in-point, not a timeline position. (Verified; not stated in `describe`.)
 
 ## Flow
 
 capcut-cli edits the draft; CapCut renders the final video. For a first-time user:
 
-1. `capcut init <name>` — creates and registers the draft where CapCut can open it.
+1. Create the empty project **in CapCut** (New Project), then quit CapCut — capcut-cli
+   won't write while CapCut is open. Build into that shell. (`capcut init` also makes
+   drafts, but CapCut 6.5 rejects them as "unusual path" from minimal metadata; a
+   CapCut-authored shell opens on every version. Verified by build, 2026-07.)
 2. Add source media from anywhere: `capcut add-video <project> <file> <start> <duration>`.
    The file is copied into the draft's `assets/` folder, so the draft is self-contained
    and the original can be moved or deleted. Add text and edits with the other commands.
@@ -52,3 +63,5 @@ capcut-cli edits the draft; CapCut renders the final video. For a first-time use
 - No final render: `capcut render` is a low-res ffmpeg proxy; `capcut export` is
   experimental macOS UI-automation.
 - JianYing 6.0+ encryption is unsupported (`capcut decrypt` only explains the workaround).
+- Font family is GUI-only — `add-text` has no font-family flag, and CapCut stores the font
+  as a non-portable cache path, so it can't be set or reproduced from the CLI.
