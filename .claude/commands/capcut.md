@@ -43,6 +43,13 @@ There is no `split` command. To slice one source into N segments, `add-video` it
 times, then `trim <project> <id> <source-start> <duration>` each — `trim`'s `<start>`
 is the source in-point, not a timeline position. (Verified; not stated in `describe`.)
 
+**Ratio guard:** after the first `add-video`, compare the source's orientation from its
+`media_probe` (width/height, noting `rotation` 90/270 swaps them) against the canvas from
+`capcut info`. If they mismatch (e.g. portrait source in a landscape canvas), warn the
+user: the source will be pillarboxed, and the canvas ratio must be set in CapCut —
+capcut-cli can't set it, and CapCut auto-detects ratio only from imported media, not
+CLI-added.
+
 ## Flow
 
 capcut-cli edits the draft; CapCut renders the final video. For a first-time user:
