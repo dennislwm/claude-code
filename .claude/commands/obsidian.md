@@ -27,7 +27,7 @@ If both fail, check:
 
 **If `$ARGUMENTS` is empty**, run `obsidian daily`.
 
-**Write/destructive commands** (require confirmation): `create`, `daily` (new note only), `daily:append`, `daily:prepend`, `append`, `move`, `properties:set`, `properties:remove`, `delete`, `plugin:enable`, `plugin:disable`, `plugin:reload`, `eval`, any command with `--overwrite`, and any **replace/update** operation using `Read` + `Edit`.
+**Write/destructive commands** (require confirmation): `create`, `daily` (new note only), `daily:append`, `daily:prepend`, `append`, `move`, `properties:set`, `properties:remove`, `delete`, `plugin:enable`, `plugin:disable`, `plugin:reload`, `eval`, any command with `--overwrite`, and any mid-file change (see **Write operations** below -- apply it via `create overwrite`, not the Edit tool).
 
 ## Command Reference
 
@@ -49,24 +49,26 @@ If both fail, check:
 
 **Useful flags:** `vault=<name>`, `format=json|tsv|csv|md`, `total`, `open`
 
-## Replace/update content in a note
+## Write operations
 
-Use this path when `$ARGUMENTS` requires replacing or modifying an existing line (not just appending). Treat as a write operation — state the exact change and confirm before executing.
+Writes hit irreplaceable user data. Confirm before every write, and stop at the first rung.
 
-1. **Resolve vault path:** parse `~/Library/Application Support/obsidian/obsidian.json` with Python to extract the vault path:
-   ```bash
-   python3 -c "
-   import json, sys
-   d = json.load(open(sys.argv[1]))
-   for v in d.get('vaults', {}).values():
-       print(v.get('path', ''))
-   " ~/Library/Application\ Support/obsidian/obsidian.json
-   ```
-   If multiple vaults are returned, match on the `vault=<name>` argument or ask the user to clarify.
+0. **Target first.** Address every note by its full relative path *and* `vault=<name>` — never a bare filename. Bare names collide across the vault's JD systems (`file="00.00 Index.md"` can resolve to the wrong section). Resolve the exact path with `obsidian files | grep` before any write.
+1. **Read-only** (`read`, `files`, `folders`, `search`, `tags`, `backlinks`, `links`, `orphans`, `unresolved`) — run directly, no confirmation.
+2. **Append / prepend** — `append` / `prepend`. Confirm.
+3. **New note** — `create path="<dir>/<Name>.md" content="..."`. Put the filename in `path=`, never `name=` (`name=` truncates dotted names: `34.04 coda-cli` → `34.md`). Confirm.
+4. **Mid-file change / insert** — do NOT edit the vault file in place (many projects forbid the Edit/Write tools on vault files):
+   a. `obsidian read` the note into a local temp file.
+   b. Edit the temp (sed/awk or the Edit tool on the *temp*), diff it, confirm exactly the intended lines changed.
+   c. `obsidian create overwrite path="<full path>" content="$(cat <temp>)"`.
+   Read+Edit in place is acceptable only where a project explicitly permits editing vault files.
+5. **Rename / move** — `move`. Confirm.
 
-2. **Construct note path:** use `obsidian files` or `obsidian daily:read` to identify the relative note path, then join with the vault path. Always quote paths (they may contain spaces).
+**Verify after every write:** `obsidian read` the target back and confirm it matches intent (right path, right content). Mandatory — the operator is error-prone.
 
-3. **Edit:** use the `Read` tool to load current content, then the `Edit` tool to replace the target line. Confirm the exact change with the user before executing.
+**Guardrails:**
+- Never probe a write command with `--help` — `create --help` *creates* a note. Read a command's flags from the top-level `obsidian --help` instead.
+- Scope every operation to the vault section named in the request; never touch other sections.
 
 ## After running
 
