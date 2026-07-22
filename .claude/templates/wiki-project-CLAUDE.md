@@ -389,11 +389,24 @@ Generates, all under the wiki's `.claude/`:
      branch the wiki (every write there is a reviewed artifact, and a wiki work
      branch forces a commit-to-default-then-merge-forward dance for every config
      fix -- 28 merge commits in one day at the first instantiation).
-   - **Each iteration -- 0. Dispatch**, exactly one, in order:
+   - **Each iteration -- 0. BEFORE dispatch**, print any decision record still
+     in the Proposed state: title, considered options, the trade-off. Printing
+     is not a unit of work and never consumes the tick. Proposed means GATE B is
+     INCOMPLETE, not resolved -- it matches no dispatch rung, so without this it
+     is invisible to the loop forever while silently excluding its problem space
+     from every future discovery.
+   - **0. Dispatch**, exactly one, in order:
      a. any approved decision record -> implement it, lowest number first;
      b. else any open LOOP-SURFACED defect -> fix it, LAZIEST first (fewest
         lines and files, not oldest), skipping any marked `blocked:`;
-     c. else -> discover new work.
+     c. else -> discover new work, UNLESS a decision record is already parked
+        awaiting the human gate. Never manufacture a second decision while the
+        first awaits a call: each parked record excludes its problem space from
+        future discovery, so an unanswered queue silently narrows the search
+        space. Parked record and nothing at (b)? Self-stop naming the record.
+        This is what makes decisions first-class -- ranking them above defects
+        at (b) cannot, since a parked record has no work the loop can do and
+        selecting it would only starve the defect queue on human inaction.
      Dispatch replaces an iteration counter. A counter bounds how long the loop
      runs; dispatch bounds what it may do, which is the property actually
      wanted, and it stops the queue growing unboundedly.
@@ -433,9 +446,12 @@ Generates, all under the wiki's `.claude/`:
      registered, STOP. Never erase: the Rejected record is what stops the same
      work being rediscovered, and it keeps the reasoning with the artifact.
      PLAUSIBLE -> revise once. Pass -> proceed.
-   - **4. GATE B (human)** -- accept / edit / defer / reject / no answer. Commit
-     Accepted AND Rejected records; an uncommitted Rejected record defeats its
-     own purpose.
+   - **4. GATE B (human)** -- accept / edit / defer / reject / no answer. PRINT
+     the record's title, its considered options and the trade-off, then park it
+     and continue. Do NOT branch on whether a human is present: there is no
+     signal for that, and guessing wrong costs a decision the operator was
+     sitting there ready to make. Commit Accepted AND Rejected records; an
+     uncommitted Rejected record defeats its own purpose.
    - **5. Implement** on the work branch.
    - **6. GATE C (automated)** -- ponytail + the test suite + `check scaffold`.
    - **7. Fix a defect** (reached only from dispatch b). Apply the DECISION TEST
@@ -472,7 +488,14 @@ Generates, all under the wiki's `.claude/`:
    Edit. Do not "tidy up" the empty file later; its existence is the fix.
 
 2. `agents/<verifier>.md` -- a cold grader that never implements or fixes:
-   `model`, `effort`, `tools`, `skills: ponytail`. Its `description` and its
+   `model`, `effort`, `tools`, `skills: ponytail`. GRANT IT `Grep` AND `Glob`,
+   not just `Read, Bash`. An agent whose only search tool is a shell WILL chain
+   (`| head`, `;`, `cd &&`, `awk` programs, a `python3` heredoc that rewrote a
+   durable file by line index) -- seven prompts in one session at 13pylabel,
+   because prose telling it not to chain leaves it no other way to work. Grant
+   the search tools and Bash shrinks to the one test command. Never claim in an
+   agent body that Grep and Glob are unavailable unless verified: that claim was
+   copied between projects and manufactured the problem it warned about. Its `description` and its
    BODY must both name every artifact it grades (a decision record, a diff, a
    defect claim); a body listing fewer than the description sends it after a
    rubric it has no definition for. Rubric = ponytail + the wiki placement
