@@ -291,11 +291,15 @@ the same flow. Additive only.
    but is not surfaced from `CLAUDE.md`.
 
 3. **Present a gap table:** `Gap | Canonical expectation | This wiki's actual
-   state`. Then put the proposed additions to ponytail and propose only what
-   survives. A gap is not automatically worth filling: a command this project
-   can never run, or an artifact row for a file that does not exist, is
-   premature scaffolding. The first real run proposed six additions and four
-   earned a place.
+   state`. Then put the proposed additions to ponytail.
+
+   The gate is NARROW by design. Reject only what this project can never run --
+   `create scaffold` where the sibling repo already exists -- or an artifact row
+   for a file that does not exist. Do NOT reject a command because the project
+   has no use for it YET: these commands exist so a project can ADOPT them, and
+   a project cannot build a good loop without the audit that describes what a
+   good one looks like. "Not needed today" is an argument for including it, not
+   against.
 
 4. **NEVER remove.** Lines here that are absent from the canonical template are
    this project's own, and a longer `CLAUDE.md` than canonical is the expected
@@ -308,39 +312,98 @@ the same flow. Additive only.
 
 Output: a short report.
 
-### create loop  [DRAFT -- NOT VALIDATED, DO NOT RUN AS READY]
-
-> DRAFT / UNVERIFIED. This command has never been run, and it generates a loop
-> shape that has never completed a cycle. Do NOT invoke it as a ready command --
-> it is a design record persisted so the design survives session loss. Promote it
-> to a live command only after a loop built by hand from this shape (first
-> instantiation: `13coda-cli.wiki`) completes one real work cycle end to end,
-> reconciling the draft against what actually worked.
+### `create loop`
 
 Scaffolds an autonomous-loop setup. Signature:
 `/wiki create loop [repo folder] [wiki folder] [docs/user instructions]`
 
+Everything below is generated from THIS FILE alone. Never instruct the operator
+to copy from another wiki: this template is distributable and lives on every
+device, while sibling wikis do not -- on a fresh machine "copy the nearest
+working loop" is a dead end.
+
+Emit the generic sections VERBATIM and substitute only the `<...>` parts. The
+cost is asymmetric, exactly as it is for the allow-list: a redundant section
+costs nothing, a missing one costs a day of rediscovering it against a live
+loop.
+
 Generates, all under the wiki's `.claude/`:
 
-1. `loop.md` from this general skeleton:
-   - **Setup** -- idempotent working-branch bootstrap in the repo(s): the one
-     action allowed to start from main; all later work stays on the branch.
-   - **Each iteration** -- bound the success path (an iteration cap with a
-     self-stop, or a human gate that fires every iteration) ->
-     do the next unit of work (scope defined by `[docs/user instructions]`) ->
-     spawn the verifier on each durable artifact -> escalation contract
-     (CONFIRMED stops the loop, PLAUSIBLE auto-retries once) -> record the
-     outcome.
-   - **State** -- `.claude/loop-state.json`: iteration count + progress; persist
-     each gate outcome and any stop/escalation reason (the only events not
-     already on disk) for out-of-band inspection.
-   - **Boundaries** -- work only on the branch; escalate anything a branch cannot
-     undo (push/merge to main, production writes, secret reads, external network).
-2. `agents/<verifier>.md` -- a cold verifier subagent: `model`, `effort`,
-   `tools`, `skills: ponytail`; rubric = ponytail + the wiki placement ladder +
-   i-have-adhd + objective passes (`triage`, `check scaffold`, tests); worst-first
-   output contract (plain text until ReportFindings is confirmed grantable to a
-   subagent).
+1. `loop.md`, in this order. The ORDER is load-bearing -- Bash discipline sits
+   above dispatch because a rule 140 lines below the step being executed is one
+   the loop has already walked past.
+
+   - **Bash discipline (first, before anything else).** ONE command per Bash
+     call. No `cd`, `&&`, `||`, `;`, pipe, `$(...)`, or `2>/dev/null` -- any of
+     them makes the call prompt however ordinary the programs are, and
+     `2>/dev/null` additionally hides the error explaining the failure.
+     Crossing into the sibling repo changes nothing: use `git -C <abs path>` and
+     absolute paths, never `cd`. NEVER edit with `sed -i` -- use the Edit tool;
+     a blind in-place regex rewrites every match with no diff, and one such call
+     widened a fix across a whole file and took three more to undo. Name the
+     dependency-source path literally rather than deriving it with command
+     substitution, and name the exact single-command test invocation.
+   - **Setup** -- idempotent working-branch bootstrap. Branch the CODE repo
+     (automated edits stay off its default branch until a human merges); do NOT
+     branch the wiki (every write there is a reviewed artifact, and a wiki work
+     branch forces a commit-to-default-then-merge-forward dance for every config
+     fix -- 28 merge commits in one day at the first instantiation).
+   - **Each iteration -- 0. Dispatch**, exactly one, in order:
+     a. any approved decision record -> implement it, lowest number first;
+     b. else any open LOOP-SURFACED defect -> fix it, LAZIEST first (fewest
+        lines and files, not oldest), skipping any marked `blocked:`;
+     c. else -> discover new work.
+     Dispatch replaces an iteration counter. A counter bounds how long the loop
+     runs; dispatch bounds what it may do, which is the property actually
+     wanted, and it stops the queue growing unboundedly.
+   - **1. Discover** -- spawn the discovery subagent. Put EVERY defect it
+     reports through the DEFECT GATE, three objective checks: the cited
+     file:line trace verifies against the code; nothing sanctions the behaviour
+     or forbids the obvious fix; not already covered. CONFIRMED -> record it.
+     DISCARD -> record it as Rejected WITH the reason; never delete, or the same
+     false claim is re-filed. REFRAME -> correct the framing, then record.
+   - **2. Propose** a decision record, status Proposed, >= 2 considered options,
+     evidence URLs the human can check.
+   - **3. GATE A (automated, ponytail)** -- CONFIRMED -> set status Rejected,
+     append the findings VERBATIM under a `## Gate A Findings` heading, keep it
+     registered, STOP. Never erase: the Rejected record is what stops the same
+     work being rediscovered, and it keeps the reasoning with the artifact.
+     PLAUSIBLE -> revise once. Pass -> proceed.
+   - **4. GATE B (human)** -- accept / edit / defer / reject / no answer. Commit
+     Accepted AND Rejected records; an uncommitted Rejected record defeats its
+     own purpose.
+   - **5. Implement** on the work branch.
+   - **6. GATE C (automated)** -- ponytail + the test suite + `check scaffold`.
+   - **7. Fix a defect** (reached only from dispatch b). Apply the DECISION TEST
+     first: if a second plausible approach can be named, STOP -- it is a
+     decision, not a defect. Then write a test that FAILS against current code,
+     make the smallest change that turns it green, and run GATE C. Cannot fix
+     it? Record `blocked: <reason>`; dispatch skips those, so the queue cannot
+     livelock.
+   - **State** -- `.claude/loop-state.json`, GITIGNORED, progress events only.
+     Anything that must survive belongs in a requirement, a decision record or a
+     commit message. Tracking it puts progress events in history and a conflict
+     on every wake.
+   - **Cadence** -- name the wakeup delay explicitly, and mark it if it is a
+     testing value.
+   - **Boundaries** -- work only on the branch; NEVER push to any remote.
+     Merging and pushing are human actions: a protected default branch means an
+     automated push either fails or silently bypasses the protection rule. Also
+     escalate production writes, secret reads, and external network calls.
+
+   Also add `.claude/loop-state.json` to the wiki's `.gitignore`.
+
+2. `agents/<verifier>.md` -- a cold grader that never implements or fixes:
+   `model`, `effort`, `tools`, `skills: ponytail`. Its `description` and its
+   BODY must both name every artifact it grades (a decision record, a diff, a
+   defect claim); a body listing fewer than the description sends it after a
+   rubric it has no definition for. Rubric = ponytail + the wiki placement
+   ladder + objective passes (tests, `check scaffold`). Every command the rubric
+   names must exist in the wiki's CLAUDE.md -- references run both ways.
+   Output contract: worst-first plain-text findings blocks (plain text until
+   ReportFindings is confirmed grantable to a subagent). Do NOT put
+   output-formatting skills in the rubric: the verifier reports to the loop, not
+   to a human, and the block format is answer-first by construction.
 3. Permissions posture -- either a scoped `.claude/settings*.json` allow-list, or
    a documented decision to run interactive-only.
 
@@ -416,10 +479,12 @@ Generates, all under the wiki's `.claude/`:
      yours alongside rather than replacing.
 
 The **work step is project-specific**: `[docs/user instructions]` defines what a
-unit of work is and its gates. The first instantiation (`13coda-cli.wiki`)
-specializes it into a code-vs-design gap -> ADR flow with an added human
-accept/reject/edit gate and extra statuses (`Approved`). That specialization is
-NOT part of this generator until validated -- see that wiki as the worked example.
+unit of work is, which project documents are authoritative, and which are stale
+and must be ignored. Everything else above is generic and ships verbatim. The
+first instantiation (`13coda-cli.wiki`) specialized the work step into "a defect
+fix if one is queued, else a newly discovered pain point proposed as an ADR",
+and validated this shape by closing three requirements with GATE C passing on
+each.
 
 **A loop with only one output type jams on everything else it finds.** If the
 loop can only emit decisions, the defects it turns up while investigating have
