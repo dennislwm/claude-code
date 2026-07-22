@@ -327,6 +327,47 @@ cost is asymmetric, exactly as it is for the allow-list: a redundant section
 costs nothing, a missing one costs a day of rediscovering it against a live
 loop.
 
+BEFORE emitting `loop.md`, ASK the operator and WAIT for an answer:
+
+> What should discover READ to find a decision candidate?
+
+This is the one input generation cannot recover -- everything else here derives
+from this file or the sibling repo. Do not guess it, and do not emit `loop.md`
+without it.
+
+Answering it well is the hard part, and getting it wrong wastes every run. The
+source is wherever REALITY CONTRADICTS THE CODE -- for a tool with users, their
+reports; its own users, never its platform's. A project with no users YET takes
+its demand from prospective users of comparable tools. Its own diagnostics over
+live output are a DEFECT source, not a demand source: they find what is broken,
+never what is missing.
+
+Both instantiations agree on the negative: reading code, and researching the
+platform a tool wraps, produce nothing usable. 13coda-cli spent five runs on the
+pain of the platform it wraps -- every candidate a platform limit its CLI could
+make no decision about -- while one report from a calling repo and two of its own
+failure paths produced three real requirements. 13pylabel was generated on the
+assumption it had no users, took its diagnostics as its demand source, and
+produced zero decision records before the assumption was corrected.
+
+A read-only defect diagnostic (a `check-*` command, a linter, a test suite) is a
+DEFECT source, not a decision source. Say so and ask again. A loop generated with
+only a defect source has unreachable Propose/GATE A/GATE B steps and degrades
+into a defect fixer: 13pylabel was generated that way, has produced zero decision
+records, and self-stops the moment its input queue is empty.
+
+FALLBACK, generic to every loop: `../20playradar.wiki` -- a curated radar of the
+operator's own technologies and techniques. Always available, so it covers the
+dry season when a project-specific source yields nothing. A blip is a SOLUTION:
+reframe it into the problem it would solve for THIS project, in the operator's
+words, and let GATE A judge whether that problem is real. Do NOT pre-filter --
+GATE A's rubric is ponytail, and "solution looking for a problem" is its rung 1.
+GATE A's Rejected record retires that blip permanently, so the radar drains.
+
+    # ponytail: every rejected blip costs a full tick (reframe + ADR + GATE A).
+    # Acceptable while the radar is small; add a cheap pre-filter if dry seasons
+    # start burning many ticks in a row.
+
 Generates, all under the wiki's `.claude/`:
 
 1. `loop.md`, in this order. The ORDER is load-bearing -- Bash discipline sits
@@ -356,28 +397,35 @@ Generates, all under the wiki's `.claude/`:
      Dispatch replaces an iteration counter. A counter bounds how long the loop
      runs; dispatch bounds what it may do, which is the property actually
      wanted, and it stops the queue growing unboundedly.
-   - **1. Discover.** FIRST check whether this wiki already defines read-only
-     diagnostic commands that report proposed fixes without applying them. If
-     it does, THEY are the discovery stage and the defect gate -- reuse them,
-     and write neither a discovery subagent nor a separate gate. A ladder that
-     already ends in "unverified, never silently assume correct" and never
-     writes has done both jobs; a second gate over it is duplication that will
-     drift. (13pylabel needed no subagent and no hand-written gate for exactly
-     this reason; 13coda-cli needed both, because web research is open-ended
-     judgement with no such command to lean on.)
+   - **1. Discover.** Discover's PRIMARY output is a DECISION CANDIDATE that
+     carries into step 2. Name the decision source the operator gave above, and
+     say what discover reads when that source is momentarily empty. Defects
+     found along the way are SECONDARY -- often worth more than the decision
+     that surfaced them, and lost if only mentioned in conversation, so they are
+     gated and recorded, but they do NOT consume the tick.
 
-     Otherwise spawn a discovery subagent and put EVERY defect it reports
-     through a DEFECT GATE of three objective checks: the cited file:line trace
-     verifies against the code; nothing sanctions the behaviour or forbids the
-     obvious fix; not already covered.
+     For defects, FIRST check whether this wiki already defines read-only
+     diagnostic commands that report proposed fixes without applying them. If
+     it does, THEY are the defect gate -- reuse them, and write no separate
+     gate. A ladder that already ends in "unverified, never silently assume
+     correct" and never writes has done the job; a second gate over it is
+     duplication that will drift. (13pylabel needed no hand-written gate for
+     exactly this reason; 13coda-cli needed one, because web research is
+     open-ended judgement with no such command to lean on.)
+
+     Otherwise put EVERY defect through a DEFECT GATE of three objective checks:
+     the cited file:line trace verifies against the code; nothing sanctions the
+     behaviour or forbids the obvious fix; not already covered.
 
      Either way: CONFIRMED -> record it. DISCARD/unverified -> record it as
      Rejected WITH the reason; never delete, or the same non-finding is
      re-filed next run. REFRAME -> correct the framing, then record.
 
-     STATE THE EXIT. Recording a confirmed finding ENDS the iteration -- the
-     next tick's dispatch picks it up at (b). A discover step that describes
-     recording and then stops mid-air leaves the flow undefined.
+     STATE THE EXIT. The tick ends at steps 2-4 or step 7 -- NEVER on a recorded
+     defect. Ending it there starves the decision path: the candidate is
+     discarded, dispatch (b) picks up the defect next tick, and the loop can
+     only ever fix defects. A discover step that describes recording and then
+     stops mid-air leaves the flow undefined.
    - **2. Propose** a decision record, status Proposed, >= 2 considered options,
      evidence URLs the human can check.
    - **3. GATE A (automated, ponytail)** -- CONFIRMED -> set status Rejected,
@@ -416,7 +464,12 @@ Generates, all under the wiki's `.claude/`:
      automated push either fails or silently bypasses the protection rule. Also
      escalate production writes, secret reads, and external network calls.
 
-   Also add `.claude/loop-state.json` to the wiki's `.gitignore`.
+   Also add `.claude/loop-state.json` to the wiki's `.gitignore`, and CREATE it
+   now containing `{"progress": []}`. `Edit(path)` allow-rules gate edits but
+   `Write(path)` rules are INERT, so a loop-state file that does not exist yet
+   forces a permission prompt on the first tick that records anything -- and no
+   allow-list entry can prevent it. Creating it here makes every later write an
+   Edit. Do not "tidy up" the empty file later; its existence is the fix.
 
 2. `agents/<verifier>.md` -- a cold grader that never implements or fixes:
    `model`, `effort`, `tools`, `skills: ponytail`. Its `description` and its
@@ -533,20 +586,16 @@ with alternatives needs the human gate a defect path deliberately lacks. Naming
 the second approach IS the evidence, which keeps the test falsifiable rather than
 a matter of taste.
 
-**Choosing the demand source is the hard part, and getting it wrong wastes every
-run.** The source is wherever REALITY CONTRADICTS THE CODE. For a tool with
-users, that is their reports -- its own users, never its platform's. For a
-project with no users at all, it is the project's own output checked against
-live data. Both instantiations agree on the negative: reading code, and
-researching the platform a tool wraps, produce nothing usable.
+**Changing the discover source changes the defect POPULATION the fix step
+receives.** 13pylabel's fix step demanded a failing test before any repair,
+correct while its only source produced code defects; a source that also reports
+doc/code disagreements made that rule unsatisfiable overnight, and neither
+`blocked:` exit fitted a one-line comment fix. Scope it: a failing test is
+required for a change to CODE, while a doc-only fix ships without one -- the
+diff is the check and GATE C still grades it, ponytail being GATE C's rubric and
+already holding that trivial one-liners need no test. Re-read the fix step
+whenever the source changes.
 
-The first instantiation spent five runs researching the pain of the platform it
-wraps -- every candidate was a platform limit its CLI could make no decision
-about -- while one report from an actual calling repo and two investigations of
-its own failure paths produced three real requirements. The second is a personal
-pipeline nobody else runs, so "its own users" was empty; its demand came from
-running its existing diagnostics over live rows, which had already caught a slug
-derivation that was silently wrong for every English sealed URL.
-
-Decide where demand comes from before tuning anything else; gates were
+Decide where demand comes from before tuning anything else (the rule lives with
+the question `create loop` asks, above); gates were
 straightforward by comparison.
