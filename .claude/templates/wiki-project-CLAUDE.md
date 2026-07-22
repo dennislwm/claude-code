@@ -356,12 +356,24 @@ Generates, all under the wiki's `.claude/`:
      Dispatch replaces an iteration counter. A counter bounds how long the loop
      runs; dispatch bounds what it may do, which is the property actually
      wanted, and it stops the queue growing unboundedly.
-   - **1. Discover** -- spawn the discovery subagent. Put EVERY defect it
-     reports through the DEFECT GATE, three objective checks: the cited
-     file:line trace verifies against the code; nothing sanctions the behaviour
-     or forbids the obvious fix; not already covered. CONFIRMED -> record it.
-     DISCARD -> record it as Rejected WITH the reason; never delete, or the same
-     false claim is re-filed. REFRAME -> correct the framing, then record.
+   - **1. Discover.** FIRST check whether this wiki already defines read-only
+     diagnostic commands that report proposed fixes without applying them. If
+     it does, THEY are the discovery stage and the defect gate -- reuse them,
+     and write neither a discovery subagent nor a separate gate. A ladder that
+     already ends in "unverified, never silently assume correct" and never
+     writes has done both jobs; a second gate over it is duplication that will
+     drift. (13pylabel needed no subagent and no hand-written gate for exactly
+     this reason; 13coda-cli needed both, because web research is open-ended
+     judgement with no such command to lean on.)
+
+     Otherwise spawn a discovery subagent and put EVERY defect it reports
+     through a DEFECT GATE of three objective checks: the cited file:line trace
+     verifies against the code; nothing sanctions the behaviour or forbids the
+     obvious fix; not already covered.
+
+     Either way: CONFIRMED -> record it. DISCARD/unverified -> record it as
+     Rejected WITH the reason; never delete, or the same non-finding is
+     re-filed next run. REFRAME -> correct the framing, then record.
    - **2. Propose** a decision record, status Proposed, >= 2 considered options,
      evidence URLs the human can check.
    - **3. GATE A (automated, ponytail)** -- CONFIRMED -> set status Rejected,
@@ -497,11 +509,19 @@ the second approach IS the evidence, which keeps the test falsifiable rather tha
 a matter of taste.
 
 **Choosing the demand source is the hard part, and getting it wrong wastes every
-run.** A discovery loop is only as good as where it looks for demand, and the
-source must be the tool's OWN users rather than its platform's. The first
-instantiation spent five runs researching the pain of the platform it wraps and
-produced nothing usable -- every candidate was a platform limit its CLI could
-make no decision about -- while one report from an actual calling repo and two
-investigations of its own failure paths produced three real requirements. Decide
-where demand comes from before tuning anything else; gates were straightforward
-by comparison.
+run.** The source is wherever REALITY CONTRADICTS THE CODE. For a tool with
+users, that is their reports -- its own users, never its platform's. For a
+project with no users at all, it is the project's own output checked against
+live data. Both instantiations agree on the negative: reading code, and
+researching the platform a tool wraps, produce nothing usable.
+
+The first instantiation spent five runs researching the pain of the platform it
+wraps -- every candidate was a platform limit its CLI could make no decision
+about -- while one report from an actual calling repo and two investigations of
+its own failure paths produced three real requirements. The second is a personal
+pipeline nobody else runs, so "its own users" was empty; its demand came from
+running its existing diagnostics over live rows, which had already caught a slug
+derivation that was silently wrong for every English sealed URL.
+
+Decide where demand comes from before tuning anything else; gates were
+straightforward by comparison.
