@@ -398,7 +398,13 @@ Generates, all under the wiki's `.claude/`:
    - **0. Dispatch**, exactly one, in order:
      a. any approved decision record -> implement it, lowest number first;
      b. else any open LOOP-SURFACED defect -> fix it, LAZIEST first (fewest
-        lines and files, not oldest), skipping any marked `blocked:`;
+        lines and files, not oldest), skipping any marked `blocked:`. A
+        pre-loop backlog item is NEVER loop-surfaced, whatever evidence it
+        carries: provenance bars it, not evidence quality, or any backlog item
+        becomes eligible simply by being annotated later. The operator hands
+        one over with an explicit `loop: take` marker in its Notes -- that
+        marker and nothing else. Never hand-write a gate verdict the gate did
+        not issue;
      c. else -> discover new work, UNLESS a decision record is already parked
         awaiting the human gate. Never manufacture a second decision while the
         first awaits a call: each parked record excludes its problem space from
@@ -440,7 +446,10 @@ Generates, all under the wiki's `.claude/`:
      only ever fix defects. A discover step that describes recording and then
      stops mid-air leaves the flow undefined.
    - **2. Propose** a decision record, status Proposed, >= 2 considered options,
-     evidence URLs the human can check.
+     evidence URLs the human can check. Carry the discovery agent's EVIDENCE
+     block VERBATIM into the drivers -- url plus its shape, one per line. A
+     driver the gate cannot check reads as unevidenced, and unevidenced is
+     exactly what ponytail's rung 1 discards.
    - **3. GATE A (automated, ponytail)** -- CONFIRMED -> set status Rejected,
      append the findings VERBATIM under a `## Gate A Findings` heading, keep it
      registered, STOP. Never erase: the Rejected record is what stops the same
@@ -501,6 +510,13 @@ Generates, all under the wiki's `.claude/`:
    rubric it has no definition for. Rubric = ponytail + the wiki placement
    ladder + objective passes (tests, `check scaffold`). Every command the rubric
    names must exist in the wiki's CLAUDE.md -- references run both ways.
+   State in the rubric which EVIDENCE BASE ponytail's rung 1 judges against: for
+   a tool built for other users, "speculative" means UNEVIDENCED, never "the
+   operator has not personally felt it". Left unsaid, the grader defaults to the
+   personal-tool reading and rejects exactly the user-demand records the loop
+   exists to surface. Do not relax the rubric to compensate -- cited demand
+   evidence SATISFIES rung 1 rather than excusing it, and a second, softer
+   grading mode would forfeit the only automated gate.
    Output contract: worst-first plain-text findings blocks (plain text until
    ReportFindings is confirmed grantable to a subagent). Do NOT put
    output-formatting skills in the rubric: the verifier reports to the loop, not
