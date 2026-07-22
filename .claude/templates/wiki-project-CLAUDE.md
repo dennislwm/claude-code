@@ -218,6 +218,8 @@ default branch and pushes. Human-triggered -- the loop never calls this, and
 one is enough to stop:
 - the wiki or `../<prefix><name>` has an unclean working tree
 - `.claude/loop-state.json` was modified more recently than the wake cadence
+  (`find <wiki>/.claude/loop-state.json -mmin -<cadence in minutes>`; macOS
+  `find` rejects `-newermt` with a relative offset, ISO 8601 only)
 
 A shared checkout with two agents in it produces branch switches mid-command.
 Do not build a lockfile for this -- these two checks cost one command each.
@@ -227,6 +229,11 @@ Do not build a lockfile for this -- these two checks cost one command each.
    `--ff-only` IS the check. It fails rather than inventing a merge commit
    nobody reviewed. A diverged history is a human decision -- stop and report,
    never retry with a plain merge.
+
+   `not something we can merge` means the work branch does not exist, which is
+   the NORMAL state after a previous `land` and before the loop's first tick.
+   Report "nothing to land" and stop. It needs no precondition check of its own
+   -- the merge already distinguishes it from a real failure.
 
 2. Run the project's test command on the default branch.
 
