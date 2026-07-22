@@ -96,9 +96,15 @@ When `/wiki` is invoked without a recognized command, respond with:
 
 > This is the **<name>** wiki -- requirements, decisions, and test triage for <one-line project description>.
 >
-> Commands: `triage` | `add req` | `add test` | `create scaffold` | `check scaffold` | `check loop` | `land`
+> Commands: `triage` | `add req` | `add test` | `create scaffold` | `check scaffold` | `check loop` | `land` | `sync`
 
 Then stop. Do not run triage automatically.
+
+**Every command's report ends with a wire-back check.** If the run surfaced a
+lesson that would help a project sharing none of this code, wire it into
+`../02claude-code/.claude/templates/wiki-project-CLAUDE.md` now, while the
+failure is still on screen. Most runs surface nothing generic, and saying
+nothing is the correct outcome.
 
 ### `triage`
 
@@ -265,6 +271,37 @@ Deliberately absent: a ponytail review pass (GATE C already applies the
 ponytail rubric to every diff the loop produces) and a commit step (the loop
 commits its own work; anything uncommitted at `land` time is the
 loop-may-be-running signal firing, not work for `land` to finish).
+
+### `sync`
+
+Audits THIS wiki's `CLAUDE.md` against the canonical template at
+`../02claude-code/.claude/templates/wiki-project-CLAUDE.md`, and extends it in
+the same flow. Additive only.
+
+1. **Applicability first.** Does this wiki have real ongoing implementation
+   surface -- a sibling code repo, a pipeline, a spec the template's artifacts
+   would track? If not, it is a personal wiki by design: report "not
+   applicable" and stop. Template-absence is not a gap on a wiki that was never
+   meant to have it, and "not applicable" is a complete, valid outcome.
+
+2. **Compare, allowing for functional equivalents.** A document already doing a
+   canonical artifact's job under a different name is NOT a gap. Check for the
+   canonical artifacts and commands, and for any project document that exists
+   but is not surfaced from `CLAUDE.md`.
+
+3. **Present a gap table:** `Gap | Canonical expectation | This wiki's actual
+   state`. Then the proposed additions.
+
+4. **NEVER remove.** Lines here that are absent from the canonical template are
+   this project's own, and a longer `CLAUDE.md` than canonical is the expected
+   state, not drift. Adapt canonical wording to this project's paths, stack and
+   vocabulary rather than pasting it verbatim.
+
+5. **Writes `CLAUDE.md` only.** Never creates `Requirements.md`, `Tests.md`,
+   `Decisions.md` or any other artifact -- those come into existence on their
+   own triggers, per the wiki-structure rules above.
+
+Output: a short report.
 
 ### create loop  [DRAFT -- NOT VALIDATED, DO NOT RUN AS READY]
 
