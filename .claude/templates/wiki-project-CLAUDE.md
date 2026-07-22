@@ -374,6 +374,10 @@ Generates, all under the wiki's `.claude/`:
      Either way: CONFIRMED -> record it. DISCARD/unverified -> record it as
      Rejected WITH the reason; never delete, or the same non-finding is
      re-filed next run. REFRAME -> correct the framing, then record.
+
+     STATE THE EXIT. Recording a confirmed finding ENDS the iteration -- the
+     next tick's dispatch picks it up at (b). A discover step that describes
+     recording and then stops mid-air leaves the flow undefined.
    - **2. Propose** a decision record, status Proposed, >= 2 considered options,
      evidence URLs the human can check.
    - **3. GATE A (automated, ponytail)** -- CONFIRMED -> set status Rejected,
@@ -389,9 +393,18 @@ Generates, all under the wiki's `.claude/`:
    - **7. Fix a defect** (reached only from dispatch b). Apply the DECISION TEST
      first: if a second plausible approach can be named, STOP -- it is a
      decision, not a defect. Then write a test that FAILS against current code,
-     make the smallest change that turns it green, and run GATE C. Cannot fix
-     it? Record `blocked: <reason>`; dispatch skips those, so the queue cannot
-     livelock.
+     make the smallest change that turns it green, and run GATE C.
+
+     EVERY exit from step 7 that does not close the item must mark it
+     `blocked: <reason>`, and dispatch skips anything so marked. Both
+     non-closing exits use the SAME marker -- `blocked: is a decision, not a
+     defect -- <the approaches named>` and `blocked: cannot fix -- <reason>` --
+     because dispatch only needs "skip this, reason follows". Leaving an item
+     Open because it failed the decision test livelocks the queue: dispatch
+     selects it again next tick, it fails the same test, and nothing ever
+     changes. The first instantiation hit this and it was fixed by hand in that
+     project without fixing this spec, so it propagated into the first
+     generated loop.
    - **State** -- `.claude/loop-state.json`, GITIGNORED, progress events only.
      Anything that must survive belongs in a requirement, a decision record or a
      commit message. Tracking it puts progress events in history and a conflict
@@ -489,6 +502,18 @@ Generates, all under the wiki's `.claude/`:
    - **Three entries are stack-specific** (the test command, its runner, and
      `make test`). Swap them for your stack's equivalents; if unsure, add
      yours alongside rather than replacing.
+   - **The list above is a FLOOR, not the whole list.** Walk every command the
+     loop invokes -- especially the ones this wiki already defines and the loop
+     reuses as its discovery stage -- and add the verbs each one implies,
+     including any tool (WebFetch, WebSearch) it needs. A discovery stage that
+     shells out to a sibling CLI or a project script contributes verbs no
+     generic list can predict, and the loop prompts at the first thing it does.
+
+**Finish by running `check loop` on what you just generated. It MUST pass.**
+Any finding is a defect in THIS command, not in the scaffold: fix it here
+first, then regenerate. Patching the output and leaving the generator broken is
+how a hand-fix at one project silently propagates into every later one -- which
+is exactly how the step-7 livelock reached the first generated loop.
 
 The **work step is project-specific**: `[docs/user instructions]` defines what a
 unit of work is, which project documents are authoritative, and which are stale
