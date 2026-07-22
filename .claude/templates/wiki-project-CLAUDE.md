@@ -171,12 +171,12 @@ editing whether the loop is completely and safely configured.
 |---|---|
 | Loop spec | `<wiki>/.claude/loop.md` exists and states: a goal, a bound on the success path (either an iteration cap with a self-stop, or a human gate that fires every iteration), a work step, an audit step that spawns the verifier, an escalation contract (what STOPS vs. what retries), and branch/secret/network boundaries |
 | Verifier subagent | A `<wiki>/.claude/agents/*.md` exists with `model`, `effort`, `tools`, and a rubric plus an output contract; and it is referenced by name in loop.md (no dangling reference) |
-| State | loop.md names a loop-state location (e.g. `.claude/loop-state.json`) kept separate from human-facing files |
+| State | loop.md names a loop-state location (e.g. `.claude/loop-state.json`) kept separate from human-facing files, and that file is GITIGNORED. Tracking it puts progress events in history and a merge conflict on every wake -- 47 lines of them in one day. Anything that must survive belongs in a REQ, an ADR or a commit message; if loop.md both calls the file wipeable and tracks it, that is the contradiction, not the gitignore |
 | Permissions | The allow-list covers EVERY mutation class the loop performs -- file edits and writes as well as git verbs -- or a documented decision to run interactive-only. A partial allow-list is indistinguishable from none: each uncovered call still prompts |
-| Tooling rules | loop.md's tooling rules match the tools actually available in the session (a rule mandating an unavailable tool stalls every iteration and forces a fallback), and forbid chained Bash -- `cd X && ...` and any `&&`, `\|\|`, `;`, or subshell join. Chaining is what defeats auto-allow: the same programs run unchained do not prompt |
+| Tooling rules | loop.md's tooling rules match the tools actually available in the session (a rule mandating an unavailable tool stalls every iteration and forces a fallback), and forbid chained Bash -- `cd X && ...` and any `&&`, `\|\|`, `;`, or subshell join. Chaining is what defeats auto-allow: the same programs run unchained do not prompt. A pipe counts as chaining, so does `$(...)`, and so does `2>/dev/null` (which additionally hides the error that explains the failure). loop.md must also forbid editing by blind in-place regex (`sed -i`) and require the Edit tool: a regex rewrites every match at once with no diff, and one such call widened a fix across a whole file and took three more `sed` calls to undo, the last computing line ranges from a file the earlier two had already rewritten. Put these rules ABOVE the dispatch step, not in a tooling section at the end -- a rule 140 lines below the step being executed is a rule the loop has already walked past |
 | Boundaries | loop.md forbids irreversible or external actions a working branch cannot undo (push/merge to main, production API writes, secret reads, external network calls) |
 | ADR integration (if the loop produces ADRs) | Each loop-produced ADR uses the template's standard status lifecycle and is registered in `Decisions.md`; the loop does not re-propose a gap already carrying an ADR |
-| Config placement | `loop.md`, the verifier subagent, and any loop settings live on the default branch, not only on a work branch -- deleting a work branch must not destroy the loop. Work branches carry state and work product only |
+| Config placement | First ask whether each repo's work branch protects anything. Branch the CODE repo: automated edits must stay off the default branch until a human merges. Do NOT branch the wiki: every write there is a reviewed artifact, not generated code, and because loop config must live on the default branch anyway, a wiki work branch forces a commit-to-default-then-merge-forward dance for every config fix -- that produced 28 merge commits in one day and two config-placement mistakes. Where a work branch does exist, `loop.md`, the verifier subagent, and any loop settings live on the default branch, not only on the branch: deleting it must not destroy the loop. Work branches carry state and work product only |
 | Terminal states | Every way the loop discards or declines work leaves a durable record where the exclusion check looks. An item discarded with no record -- or recorded only in a wipeable state file -- is rediscovered and redone |
 | Everything the loop records is gated | Whatever artifact the loop writes -- a decision, a defect, a requirement -- passes a gate before it is recorded. A path that writes on the producing agent's say-so will file fabrications: applying a gate retroactively to four such entries discarded one whose every assertion the code contradicted, and reframed a second |
 | Gates match the artifact | A **decision** needs verifying AND deciding: an automated gate plus a human one. A **defect** needs only verifying -- a bug is a bug, so a human gate adds nothing. Gate asymmetry is correct; identical gating for both is either too slow or too loose |
@@ -294,6 +294,77 @@ Generates, all under the wiki's `.claude/`:
    subagent).
 3. Permissions posture -- either a scoped `.claude/settings*.json` allow-list, or
    a documented decision to run interactive-only.
+
+   Emit this allow-list. It is not a guess: it is what one real loop converged on
+   after eight rounds of removing prompts. Substitute the `<...>` paths; keep
+   every other entry verbatim, one line per proven pattern. A dead rule in a
+   project that never matches it costs nothing, while a MISSING rule costs a
+   prompt mid-tick -- and since config loads at session start, fixing that means
+   stopping the loop and relaunching. Add, never trim.
+
+   ```json
+   {
+     "permissions": {
+       "allow": [
+         "Read(//<abs path to sibling code repo>/**)",
+         "Read(//<abs path to dependency source root>/**)",
+         "Edit(**)",
+         "Edit(.claude/loop-state.json)",
+         "Edit(//<abs path to sibling code repo>/**)",
+         "Bash(<test command with its env prefix> *)",
+         "Bash(<test runner> *)",
+         "Bash(make test*)",
+         "Bash(git status *)",
+         "Bash(git log *)",
+         "Bash(git diff *)",
+         "Bash(git add *)",
+         "Bash(git commit *)",
+         "Bash(git rm *)",
+         "Bash(git checkout *)",
+         "Bash(git -C <abs path to wiki> status *)",
+         "Bash(git -C <abs path to wiki> log *)",
+         "Bash(git -C <abs path to wiki> diff *)",
+         "Bash(git -C <abs path to wiki> add *)",
+         "Bash(git -C <abs path to wiki> commit *)",
+         "Bash(git -C <abs path to wiki> rm *)",
+         "Bash(git -C <abs path to wiki> checkout *)",
+         "Bash(git -C <abs path to sibling code repo> status *)",
+         "Bash(git -C <abs path to sibling code repo> log *)",
+         "Bash(git -C <abs path to sibling code repo> diff *)",
+         "Bash(git -C <abs path to sibling code repo> add *)",
+         "Bash(git -C <abs path to sibling code repo> commit *)",
+         "Bash(git -C <abs path to sibling code repo> rm *)",
+         "Bash(git -C <abs path to sibling code repo> checkout *)",
+         "Bash(ls *)",
+         "Bash(grep *)",
+         "Bash(find *)",
+         "Bash(wc *)",
+         "Bash(gh api *)",
+         "Bash(gh search *)"
+       ]
+     }
+   }
+   ```
+
+   These notes stay HERE, never inside the JSON -- `settings.json` admits no
+   comments, and a `//` line makes it unparseable:
+
+   - **`Write(path)` rules are INERT.** Only `Edit(path)` gates file edits, and
+     `Edit` covers every file-editing tool including Write. A `Write(**)` entry
+     looks live and does nothing. Never emit one.
+   - **Patterns are prefix matches.** `Bash(git checkout *)` does not match
+     `git -C /path checkout ...`, which is why both forms appear above, for both
+     repos.
+   - **`Edit(**)` is scoped to the project root.** A sibling repo needs its own
+     absolute `Edit(//...)` entry, and dependency source needs an absolute
+     `Read(//...)`.
+   - **`.claude/**` counts as settings** and prompts separately, so
+     `loop-state.json` is named explicitly. Scope it to that one file -- never
+     `.claude/**`, which would hand over `settings.json` and the agent
+     definitions too.
+   - **Three entries are stack-specific** (the test command, its runner, and
+     `make test`). Swap them for your stack's equivalents; if unsure, add
+     yours alongside rather than replacing.
 
 The **work step is project-specific**: `[docs/user instructions]` defines what a
 unit of work is and its gates. The first instantiation (`13coda-cli.wiki`)
