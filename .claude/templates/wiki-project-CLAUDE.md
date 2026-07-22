@@ -101,7 +101,8 @@ When `/wiki` is invoked without a recognized command, respond with:
 Then stop. Do not run triage automatically.
 
 **Every command's report ends with a wire-back check.** If the run surfaced a
-lesson that would help a project sharing none of this code, wire it into
+lesson that would help a project sharing none of this code, put it to ponytail,
+then wire what survives into
 `../02claude-code/.claude/templates/wiki-project-CLAUDE.md` now, while the
 failure is still on screen. Most runs surface nothing generic, and saying
 nothing is the correct outcome.
@@ -290,7 +291,11 @@ the same flow. Additive only.
    but is not surfaced from `CLAUDE.md`.
 
 3. **Present a gap table:** `Gap | Canonical expectation | This wiki's actual
-   state`. Then the proposed additions.
+   state`. Then put the proposed additions to ponytail and propose only what
+   survives. A gap is not automatically worth filling: a command this project
+   can never run, or an artifact row for a file that does not exist, is
+   premature scaffolding. The first real run proposed six additions and four
+   earned a place.
 
 4. **NEVER remove.** Lines here that are absent from the canonical template are
    this project's own, and a longer `CLAUDE.md` than canonical is the expected
