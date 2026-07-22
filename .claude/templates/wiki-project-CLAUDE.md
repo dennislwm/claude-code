@@ -96,7 +96,7 @@ When `/wiki` is invoked without a recognized command, respond with:
 
 > This is the **<name>** wiki -- requirements, decisions, and test triage for <one-line project description>.
 >
-> Commands: `triage` | `add req` | `add test` | `create scaffold` | `check scaffold` | `check loop`
+> Commands: `triage` | `add req` | `add test` | `create scaffold` | `check scaffold` | `check loop` | `land`
 
 Then stop. Do not run triage automatically.
 
@@ -207,6 +207,57 @@ entrenches the misbehaviour and silences the only signal that it is happening.
 Reuse `/fewer-permission-prompts` for the extraction and the allow-list diff, but
 apply this classification to its suggestions rather than accepting them wholesale
 -- it will happily propose allow-listing the very patterns you want eliminated.
+
+### `land`
+
+Lands verified loop work: merges the sibling repo's work branch into its
+default branch and pushes. Human-triggered -- the loop never calls this, and
+`Boundaries` in loop.md forbids it doing so.
+
+**Refuse to start if the loop may still be running.** Two free signals, either
+one is enough to stop:
+- the wiki or `../<prefix><name>` has an unclean working tree
+- `.claude/loop-state.json` was modified more recently than the wake cadence
+
+A shared checkout with two agents in it produces branch switches mid-command.
+Do not build a lockfile for this -- these two checks cost one command each.
+
+1. `git -C ../<prefix><name> merge --ff-only <work-branch>`
+
+   `--ff-only` IS the check. It fails rather than inventing a merge commit
+   nobody reviewed. A diverged history is a human decision -- stop and report,
+   never retry with a plain merge.
+
+2. Run the project's test command on the default branch.
+
+   On failure, re-run the same suite on the pre-merge commit and report only
+   the failures that are NEW. Do not hardcode a list of known-failing tests --
+   it rots, and a stale list hides the regression it was meant to excuse. Skip
+   this second run when the suite passes.
+
+3. Push the default branch.
+
+   If the push output mentions bypassing a rule (e.g. GitHub's
+   `remote: Bypassed rule violations for refs/heads/main`), record that in the
+   report. It means a protection rule -- usually a pull-request requirement --
+   was skipped because the pushing account may bypass it. Not an error; the
+   push is human-authorized. It is worth seeing because it is silent otherwise.
+
+4. Assert clean, do not tidy:
+   - working tree clean in both repos
+   - default branch not ahead of its remote
+
+   Do NOT delete the work branch. After a fast-forward it points at the same
+   commit as the default branch, and the next tick commits onto it again.
+   Deleting it only forces Setup's `-b` path to run, which buys nothing.
+
+Output: a short report -- what merged, test result, whether a rule was
+bypassed, clean-state assertions. No file edits.
+
+Deliberately absent: a ponytail review pass (GATE C already applies the
+ponytail rubric to every diff the loop produces) and a commit step (the loop
+commits its own work; anything uncommitted at `land` time is the
+loop-may-be-running signal firing, not work for `land` to finish).
 
 ### create loop  [DRAFT -- NOT VALIDATED, DO NOT RUN AS READY]
 
