@@ -57,7 +57,11 @@ ADR titles are framed from the user's perspective ("User wants X") not the imple
 
 Before writing any ADR title, ask: "what problem was the user trying to solve?" The answer is the title. Implementation details (chosen approach, rejected alternative) belong in Considered Options, Decision Outcome, and Consequences -- not the title or Problem Statement.
 
-Any claim about an external tool's or library's API, input/output contract, or capability must be verified against its actual documentation or source before it is written into an ADR's Decision Drivers, Considered Options, or Consequences -- never asserted from the tool's name, a summary, or prior familiarity alone. If a claim can't be verified, say so in the ADR rather than stating it as fact.
+Any claim about cited code's API, input/output contract, capability, or shape (line/statement count, method structure) must be verified against its actual documentation or source before it is written into an ADR's Decision Drivers, Considered Options, or Consequences -- never asserted from a name, a summary, or prior familiarity alone, whether the code is an external tool or a sibling repo. If a claim can't be verified, say so in the ADR rather than stating it as fact.
+
+If a project's stated "usable by others" goal doesn't specify its audience shape (CLI-only, importable-as-a-library, or both), ask before drafting an ADR whose Considered Options depend on that scope -- don't assume the broadest or narrowest reading.
+
+Ponytail rung 2 ("already in this codebase?") extends to sibling repos in the same developer's or org's portfolio: check those before reaching for an external tool's design as precedent.
 
 ---
 
@@ -100,11 +104,13 @@ When `/wiki` is invoked without a recognized command, respond with:
 
 Then stop. Do not run triage automatically.
 
-**Every command's report ends with a wire-back check.** If the run surfaced a
+**Every command's report ends with a wire-back check -- and so does every
+direct edit to a loop-governing file (`loop.md`, `agents/*.md`, this
+`CLAUDE.md`), even outside a named command.** If the change surfaced a
 lesson that would help a project sharing none of this code, put it to ponytail,
 then wire what survives into
 `../02claude-code/.claude/templates/wiki-project-CLAUDE.md` now, while the
-failure is still on screen. Most runs surface nothing generic, and saying
+change is still on screen. Most edits surface nothing generic, and saying
 nothing is the correct outcome.
 
 ### `triage`
@@ -396,15 +402,23 @@ Generates, all under the wiki's `.claude/`:
      is invisible to the loop forever while silently excluding its problem space
      from every future discovery.
    - **0. Dispatch**, exactly one, in order:
-     a. any approved decision record -> implement it, lowest number first;
-     b. else any open LOOP-SURFACED defect -> fix it, LAZIEST first (fewest
-        lines and files, not oldest), skipping any marked `blocked:`. A
-        pre-loop backlog item is NEVER loop-surfaced, whatever evidence it
+     a. any Accepted decision record -> implement it, lowest number first;
+     b. else any Open LOOP-SURFACED requirement (an ADR-derived REQ, a
+        confirmed defect recorded as a REQ, or any other REQ this loop itself
+        produced) -> fix it, LAZIEST first (fewest lines and files, not
+        oldest), skipping any marked `blocked:`. Loop-surfaced means its
+        Notes carry a recorded GATE A Pass verdict -- not merely a status of
+        Open, which a human can set directly via `add req` with zero gating.
+        A pre-loop backlog item is NEVER loop-surfaced, whatever evidence it
         carries: provenance bars it, not evidence quality, or any backlog item
         becomes eligible simply by being annotated later. The operator hands
         one over with an explicit `loop: take` marker in its Notes -- that
         marker and nothing else. Never hand-write a gate verdict the gate did
-        not issue;
+        not issue. Scope this rung to REQs specifically -- an Approved ADR
+        stays in rung (a), never folded in here even though both are
+        "approved work": one instantiation initially interleaved ADRs and
+        REQs into a single rung by ID before separating them back out to
+        match this rung's original two-tier shape;
      c. else -> discover new work, UNLESS a decision record is already parked
         awaiting the human gate. Never manufacture a second decision while the
         first awaits a call: each parked record excludes its problem space from
@@ -450,11 +464,35 @@ Generates, all under the wiki's `.claude/`:
      block VERBATIM into the drivers -- url plus its shape, one per line. A
      driver the gate cannot check reads as unevidenced, and unevidenced is
      exactly what ponytail's rung 1 discards.
-   - **3. GATE A (automated, ponytail)** -- CONFIRMED -> set status Rejected,
-     append the findings VERBATIM under a `## Gate A Findings` heading, keep it
-     registered, STOP. Never erase: the Rejected record is what stops the same
-     work being rediscovered, and it keeps the reasoning with the artifact.
-     PLAUSIBLE -> revise once. Pass -> proceed.
+   - **3. GATE A (automated, ponytail)** -- verdict vocabulary is exactly one
+     of **Reject / Revise / Pass**. Never use "CONFIRMED" or "PLAUSIBLE" for a
+     verdict: "CONFIRMED" collides with the unrelated sense of confirming a
+     defect claim is true (step 1's defect gate), and a machine-read tick
+     could act on the wrong meaning. A prior instantiation used "CONFIRMED" as
+     loose praise for a passing candidate while the spec defined it as reject
+     -- caught only because a human read the prose past the label.
+
+     Before ringing any candidate Deferred (back in step 2/Propose, before it
+     reaches GATE A), apply a certainty test: is the stated trigger a genuine
+     contingency that may never occur, or is it the system's normal,
+     guaranteed operating mode? A trigger that has already fired, or that is
+     the only path the system has for a routine action, means the requirement
+     is live NOW -- status Open, not Deferred. GATE A re-checks this test on
+     every Deferred candidate it grades, not only on request: one
+     instantiation deferred "attribute each row to the snapshot it came from"
+     behind "if a second snapshot file is ever ingested," when three dated
+     snapshot files already existed on disk and ingesting successive
+     snapshots was the system's only update path -- the trigger had already
+     fired before the requirement was written.
+
+     Reject -> set status Rejected, append the findings VERBATIM under a
+     `## Gate A Findings` heading, keep it registered, STOP. Never erase: the
+     Rejected record is what stops the same work being rediscovered, and it
+     keeps the reasoning with the artifact. On Reject, also PRINT the
+     record's title and the Gate A findings before stopping -- matching GATE
+     B's print-on-park behavior below, so a Rejected outcome is visible at
+     tick end, not only on a later read of `decisions/`. Revise -> revise
+     once. Pass -> proceed.
    - **4. GATE B (human)** -- accept / edit / defer / reject / no answer. PRINT
      the record's title, its considered options and the trade-off, then park it
      and continue. Do NOT branch on whether a human is present: there is no
@@ -462,7 +500,13 @@ Generates, all under the wiki's `.claude/`:
      sitting there ready to make. Commit Accepted AND Rejected records; an
      uncommitted Rejected record defeats its own purpose.
    - **5. Implement** on the work branch.
-   - **6. GATE C (automated)** -- ponytail + the test suite + `check scaffold`.
+   - **6. GATE C (automated)** -- ponytail + the test suite + `check scaffold`
+     + idempotency: any diff that writes persistent state (a database, a
+     file, an external system) must include a test proving a second run on
+     the same input doesn't corrupt or duplicate data. Missing this is a
+     blocking finding, not informational -- idempotency is a standing
+     invariant to check on every implementation from day one, not a
+     requirement to defer until someone notices a re-run happened.
    - **7. Fix a defect** (reached only from dispatch b). Apply the DECISION TEST
      first: if a second plausible approach can be named, STOP -- it is a
      decision, not a defect. Then write a test that FAILS against current code,
@@ -517,6 +561,17 @@ Generates, all under the wiki's `.claude/`:
    exists to surface. Do not relax the rubric to compensate -- cited demand
    evidence SATISFIES rung 1 rather than excusing it, and a second, softer
    grading mode would forfeit the only automated gate.
+   Verdict vocabulary is exactly one of **Reject / Revise / Pass** -- never
+   "CONFIRMED" or "PLAUSIBLE", which collide with the unrelated sense of
+   confirming a defect claim is true. Before treating any candidate as
+   Deferred, apply a certainty test: is the stated trigger a genuine
+   contingency, or the system's normal, guaranteed operating mode? A trigger
+   that has already fired, or is the only path the system has for a routine
+   action, means Open, not Deferred -- flag this as a finding, don't silently
+   wave it through. If the diff under grade (GATE C) writes persistent state,
+   a blocking finding if there is no test proving a second run on the same
+   input doesn't corrupt or duplicate data -- idempotency is a standing
+   invariant, not something to defer.
    Output contract: worst-first plain-text findings blocks (plain text until
    ReportFindings is confirmed grantable to a subagent). Do NOT put
    output-formatting skills in the rubric: the verifier reports to the loop, not
