@@ -100,18 +100,24 @@ When `/wiki` is invoked without a recognized command, respond with:
 
 > This is the **<name>** wiki -- requirements, decisions, and test triage for <one-line project description>.
 >
-> Commands: `triage` | `add req` | `add test` | `create scaffold` | `check scaffold` | `check loop` | `land` | `sync`
+> Commands: `triage` | `add req` | `add test` | `create scaffold` | `check scaffold` | `check loop` | `land loop` | `sync wiki`
 
 Then stop. Do not run triage automatically.
 
 **Every command's report ends with a wire-back check -- and so does every
 direct edit to a loop-governing file (`loop.md`, `agents/*.md`, this
-`CLAUDE.md`), even outside a named command.** If the change surfaced a
-lesson that would help a project sharing none of this code, put it to ponytail,
-then wire what survives into
+`CLAUDE.md`), even outside a named command.** This check must produce a
+visible verdict line every time, not a passive expectation to remember:
+state "Wire-back check: generic (propagating) / project-specific (not
+propagating) -- reason" before moving on. A silent, un-stated check is
+indistinguishable from a forgotten one -- the check was widened once
+already (from "command reports only" to "any direct edit") and still
+failed to fire twice more after that, because nothing forced it to leave a
+visible trace. If the change surfaced a lesson that would help a project
+sharing none of this code, put it to ponytail, then wire what survives into
 `../02claude-code/.claude/templates/wiki-project-CLAUDE.md` now, while the
 change is still on screen. Most edits surface nothing generic, and saying
-nothing is the correct outcome.
+so explicitly is the correct outcome -- silence is not.
 
 ### `triage`
 
@@ -183,7 +189,7 @@ editing whether the loop is completely and safely configured.
 | Check | What to surface |
 |---|---|
 | Loop spec | `<wiki>/.claude/loop.md` exists and states: a goal, a bound on the success path (either an iteration cap with a self-stop, or a human gate that fires every iteration), a work step, an audit step that spawns the verifier, an escalation contract (what STOPS vs. what retries), and branch/secret/network boundaries |
-| Verifier subagent | A `<wiki>/.claude/agents/*.md` exists with `model`, `effort`, `tools`, and a rubric plus an output contract; it is referenced by name in loop.md; AND every command its own rubric names exists in this file. References run both ways: a rubric saying "run `check scaffold` per this wiki's CLAUDE.md" against a wiki that never defined `check scaffold` sends the verifier after something undefined on every diff, silently |
+| Persisted subagents | For EVERY role loop.md dispatches as its own subagent call (the verifier, Discover if it does open-ended research, any future role) -- a `<wiki>/.claude/agents/*.md` exists with `model`, `effort`, `tools`, and a rubric plus an output contract; it is referenced by name in loop.md; AND every command its own rubric names exists in this file. References run both ways: a rubric saying "run `check scaffold` per this wiki's CLAUDE.md" against a wiki that never defined `check scaffold` sends the verifier after something undefined on every diff, silently. An asymmetry across roles (one dispatched role externalized, another left as inline prose + an ad-hoc `Agent()` call) is itself a finding, even with no functional bug -- it means that role's tool-use discipline lives nowhere the agent reading only its own file can see it |
 | State | loop.md names a loop-state location (e.g. `.claude/loop-state.json`) kept separate from human-facing files, and that file is GITIGNORED. Tracking it puts progress events in history and a merge conflict on every wake -- 47 lines of them in one day. Anything that must survive belongs in a REQ, an ADR or a commit message; if loop.md both calls the file wipeable and tracks it, that is the contradiction, not the gitignore |
 | Permissions | The allow-list covers EVERY mutation class the loop performs -- file edits and writes as well as git verbs -- or a documented decision to run interactive-only. A partial allow-list is indistinguishable from none: each uncovered call still prompts |
 | Tooling rules | loop.md's tooling rules match the tools actually available in the session (a rule mandating an unavailable tool stalls every iteration and forces a fallback), and forbid chained Bash -- `cd X && ...` and any `&&`, `\|\|`, `;`, or subshell join. Chaining is what defeats auto-allow: the same programs run unchained do not prompt. A pipe counts as chaining, so does `$(...)`, and so does `2>/dev/null` (which additionally hides the error that explains the failure). loop.md must also forbid editing by blind in-place regex (`sed -i`) and require the Edit tool: a regex rewrites every match at once with no diff, and one such call widened a fix across a whole file and took three more `sed` calls to undo, the last computing line ranges from a file the earlier two had already rewritten. Put these rules ABOVE the dispatch step, not in a tooling section at the end -- a rule 140 lines below the step being executed is a rule the loop has already walked past |
@@ -195,7 +201,7 @@ editing whether the loop is completely and safely configured.
 | Gates match the artifact | A **decision** needs verifying AND deciding: an automated gate plus a human one. A **defect** needs only verifying -- a bug is a bug, so a human gate adds nothing. Gate asymmetry is correct; identical gating for both is either too slow or too loose |
 | Fixes prove themselves | Any change the loop makes ships a check that FAILS before it and passes after. A suite that was already green proves nothing about the path it never exercised -- that is how the defect being fixed survived the tests in the first place |
 | Internal consistency | loop.md does not contradict ITSELF: every referenced step exists and sits within the flow it belongs to, no two gates or artifacts share a name, and no rule bars what another rule requires. Iteratively-edited specs accumulate contradictions precisely because each edit is locally correct on its own -- assume they are there rather than assuming the file is coherent |
-| Allow-list matches the spec | Re-check this EVERY time a command is added to this file -- adding a command is an allow-list change, and nothing links the two. `land` shipped with none of its verbs (`merge`, `rev-parse`, `stash`, `branch`) allow-listed, so it would have prompted at every step; this row had passed three consecutive runs because the spec did not yet prescribe those forms. The allow-list patterns actually match the command FORMS loop.md prescribes. Patterns are prefix matches: `Bash(git checkout *)` does not match `git -C /path checkout ...`. Paths outside the project root (a sibling repo, a virtualenv holding dependency source) need explicit `Read()` entries whatever the command |
+| Allow-list matches the spec | Re-check this EVERY time a command is added to this file -- adding a command is an allow-list change, and nothing links the two. `land loop` shipped with none of its verbs (`merge`, `rev-parse`, `stash`, `branch`) allow-listed, so it would have prompted at every step; this row had passed three consecutive runs because the spec did not yet prescribe those forms. The allow-list patterns actually match the command FORMS loop.md prescribes. Patterns are prefix matches: `Bash(git checkout *)` does not match `git -C /path checkout ...`. Paths outside the project root (a sibling repo, a virtualenv holding dependency source) need explicit `Read()` entries whatever the command |
 
 Output: a short report. No file edits.
 
@@ -221,7 +227,7 @@ Reuse `/fewer-permission-prompts` for the extraction and the allow-list diff, bu
 apply this classification to its suggestions rather than accepting them wholesale
 -- it will happily propose allow-listing the very patterns you want eliminated.
 
-### `land`
+### `land loop`
 
 Lands verified loop work: merges the sibling repo's work branch into its
 default branch and pushes. Human-triggered -- the loop never calls this, and
@@ -244,7 +250,7 @@ Do not build a lockfile for this -- these two checks cost one command each.
    never retry with a plain merge.
 
    `not something we can merge` means the work branch does not exist, which is
-   the NORMAL state after a previous `land` and before the loop's first tick.
+   the NORMAL state after a previous `land loop` and before the loop's first tick.
    Report "nothing to land" and stop. It needs no precondition check of its own
    -- the merge already distinguishes it from a real failure.
 
@@ -276,10 +282,10 @@ bypassed, clean-state assertions. No file edits.
 
 Deliberately absent: a ponytail review pass (GATE C already applies the
 ponytail rubric to every diff the loop produces) and a commit step (the loop
-commits its own work; anything uncommitted at `land` time is the
-loop-may-be-running signal firing, not work for `land` to finish).
+commits its own work; anything uncommitted at `land loop` time is the
+loop-may-be-running signal firing, not work for `land loop` to finish).
 
-### `sync`
+### `sync wiki`
 
 Audits THIS wiki's `CLAUDE.md` against the canonical template at
 `../02claude-code/.claude/templates/wiki-project-CLAUDE.md`, and extends it in
@@ -437,6 +443,41 @@ Generates, all under the wiki's `.claude/`:
      that surfaced them, and lost if only mentioned in conversation, so they are
      gated and recorded, but they do NOT consume the tick.
 
+     If Discover is dispatched as its own subagent call (open-ended research
+     and synthesis usually warrants this), generate a dedicated
+     `agents/<name>.md` for it, the same way GATE A/C's verifier gets one --
+     a role dispatched every tick with its own model/effort should not live
+     as prose reconstructed from `loop.md` each time. One instantiation kept
+     Discover as inline prose plus an ad-hoc `Agent(...)` call while its
+     sibling GATE A/C verifier got a persisted file -- an asymmetry with no
+     stated reason, caught only when compared side by side with a sibling
+     project's `agents/*.md`. Content is project-specific: scope the new
+     agent's exclusion-context/source/fallback/eligibility-gate shape to what
+     THIS project's discover source actually needs -- do not copy another
+     instantiation's internal structure (evidence-shape ranking, multi-venue
+     fallbacks) wholesale, that content answers to how elaborate the actual
+     discover source is, not a template default. Whatever tool grants the new
+     agent gets (Bash, Grep, Glob, WebFetch, WebSearch), restate the same
+     tool-use discipline this file's `create loop` section requires of the
+     verifier below -- a subagent does not inherit `loop.md`'s top-level Bash
+     discipline or this project's global CLAUDE.md rules just by living next
+     to them in the same repo; unstated discipline in one file is invisible
+     to an agent reading only its own file.
+
+     If discover runs this wiki's `triage` command for any reason (stage
+     priority, backlog scan, whatever this project's Discover source uses it
+     for): triage is read-only by definition and only REPORTS a Deferred REQ
+     whose "Add when" trigger may now be met -- nothing converts that report
+     into a write. Close that gap here: any REQ triage flags as trigger-fired
+     gets flipped to Open in `Requirements.md` directly, same tick, no gate --
+     this is a fact correction (the certainty test in GATE A already covers
+     why: a trigger that has already fired means the requirement is live now,
+     not a future contingency), not new work dispatch, so it applies
+     regardless of loop-surfaced vs. backlog provenance. One instantiation ran
+     several ticks with an ADR that itself noted a REQ's trigger had fired,
+     while `Requirements.md` stayed stale, because nothing in Discover acted
+     on triage's own finding.
+
      For defects, FIRST check whether this wiki already defines read-only
      diagnostic commands that report proposed fixes without applying them. If
      it does, THEY are the defect gate -- reuse them, and write no separate
@@ -459,13 +500,28 @@ Generates, all under the wiki's `.claude/`:
      discarded, dispatch (b) picks up the defect next tick, and the loop can
      only ever fix defects. A discover step that describes recording and then
      stops mid-air leaves the flow undefined.
+     Before proposing a candidate, check `decisions/` for any Rejected ADR
+     touching the same pain point -- a Rejected ADR exists specifically so
+     its pain point isn't re-derived from scratch and re-rejected for the
+     same reason on a later tick.
    - **2. Propose** a decision record, status Proposed, >= 2 considered options,
      evidence URLs the human can check. Carry the discovery agent's EVIDENCE
      block VERBATIM into the drivers -- url plus its shape, one per line. A
      driver the gate cannot check reads as unevidenced, and unevidenced is
      exactly what ponytail's rung 1 discards.
-   - **3. GATE A (automated, ponytail)** -- verdict vocabulary is exactly one
-     of **Reject / Revise / Pass**. Never use "CONFIRMED" or "PLAUSIBLE" for a
+   - **3. GATE A (automated, ponytail)** -- if this project's CLAUDE.md
+     references an authoritative ADR methodology document (its own
+     equivalent of an Anti-Practices list and Definition of Done
+     checklist), GATE A also checks every candidate against THAT document's
+     qualitative content specifically -- not its format section, which is
+     usually already duplicated in this project's own ADR format rules.
+     One instantiation's referenced methodology names "Dummy alternative:
+     a solution is made up and presented as an option, but does not work
+     at all in the given context" -- a real candidate there became exactly
+     this once a new fact invalidated one option's rationale, caught only
+     at the human gate two passes later, not at GATE A. Verdict vocabulary
+     is exactly one of **Reject / Revise / Pass**. Never use "CONFIRMED" or
+     "PLAUSIBLE" for a
      verdict: "CONFIRMED" collides with the unrelated sense of confirming a
      defect claim is true (step 1's defect gate), and a machine-read tick
      could act on the wrong meaning. A prior instantiation used "CONFIRMED" as
@@ -645,6 +701,27 @@ Generates, all under the wiki's `.claude/`:
    - **`.claude/**` counts as settings** and prompts separately, so
      `loop-state.json` is named explicitly. Scope it to that one file -- never
      `.claude/**`, which would hand over `settings.json` and the agent
+     definitions themselves to editing without a prompt.
+   - **Once the code repo's work branch is the recovery path, loosen the
+     allow-list to match -- narrow per-verb entries cost a prompt per new
+     command shape a subagent happens to run** (`pipenv install`, `python -m
+     app.x`, `mv`/`rm` scoped to the repo, etc.), and a work branch that can be
+     reset or abandoned makes that caution pointless. Collapse the itemized
+     `git status/log/diff/add/commit/rm/checkout` entries (both plain and
+     `-C <path>` forms) into one `Bash(git *)` / `Bash(git -C <path> *)` pair
+     per repo, and broaden narrow dev-command entries (`Bash(<test runner>
+     *)`, `Bash(make test*)`) to their bare verb (`Bash(pipenv *)`,
+     `Bash(make *)`, `Bash(python -m *)`). This trades a large surface of
+     low-stakes prompts for a much smaller number of real ones. It does NOT
+     cover the wiki, which is never branched and holds reviewed artifacts, not
+     disposable generated code -- keep the wiki's own allow-list narrow.
+   - **A broad `Bash(git *)` also allow-lists `git push`, which `loop.md`'s
+     Boundaries section forbids the loop from doing at all.** Loosening the
+     allow-list must not silently remove the one technical backstop against an
+     accidental push during an autonomous tick -- pair it with an explicit
+     `"deny": ["Bash(git push*)", "Bash(git -C <path> push*)"]` block (one
+     entry per repo path used), so the boundary holds even when everything
+     else is loosened.
      definitions too.
    - **Three entries are stack-specific** (the test command, its runner, and
      `make test`). Swap them for your stack's equivalents; if unsure, add
