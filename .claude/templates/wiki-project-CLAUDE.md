@@ -50,7 +50,7 @@ ADRs follow the full format defined in [playradar wiki ADR](https://github.com/<
 
 - Frontmatter: `status`, `date`, `deciders`
 - Sections: Context and Problem Statement, Decision Drivers, Considered Options (minimum two), Decision Outcome, Consequences
-- Status values: `Proposed`, `Rejected`, `Accepted`, `Deprecated`, `Superseded`. `Rejected` = proposed but declined, never adopted (kept as a record of the decision)
+- Status values: `Proposed`, `Approved`, `Rejected`, `Accepted`, `Deprecated`, `Superseded`. `Rejected` = proposed but declined, never adopted (kept as a record of the decision). `Approved` = GATE B accepted it, not yet implemented. `Accepted` = GATE C passed after implementation -- these are two distinct states in the loop's own flow (`Proposed` -> GATE B accept -> `Approved` -> implement -> GATE C pass -> `Accepted`), not interchangeable words for the same thing. A `Proposed` record can also carry a `Held: <reason>` line (see `create loop`'s GATE B) -- this is a modifier on `Proposed`, not a sixth status value.
 - Files: `decisions/adr-NN-short-title.md`; register in `Decisions.md` index after creating
 
 ADR titles are framed from the user's perspective ("User wants X") not the implementation ("Use Y instead of Z").
@@ -100,7 +100,7 @@ When `/wiki` is invoked without a recognized command, respond with:
 
 > This is the **<name>** wiki -- requirements, decisions, and test triage for <one-line project description>.
 >
-> Commands: `triage` | `add req` | `add test` | `create scaffold` | `check scaffold` | `check loop` | `land loop` | `sync wiki`
+> Commands: `triage` | `add req` | `add test` | `create scaffold` | `check scaffold` | `check loop` | `create loop` | `land loop` | `sync wiki`
 
 Then stop. Do not run triage automatically.
 
@@ -408,7 +408,7 @@ Generates, all under the wiki's `.claude/`:
      is invisible to the loop forever while silently excluding its problem space
      from every future discovery.
    - **0. Dispatch**, exactly one, in order:
-     a. any Accepted decision record -> implement it, lowest number first;
+     a. any Approved decision record -> implement it, lowest number first;
      b. else any Open LOOP-SURFACED requirement (an ADR-derived REQ, a
         confirmed defect recorded as a REQ, or any other REQ this loop itself
         produced) -> fix it, LAZIEST first (fewest lines and files, not
@@ -436,7 +436,25 @@ Generates, all under the wiki's `.claude/`:
      Dispatch replaces an iteration counter. A counter bounds how long the loop
      runs; dispatch bounds what it may do, which is the property actually
      wanted, and it stops the queue growing unboundedly.
-   - **1. Discover.** Discover's PRIMARY output is a DECISION CANDIDATE that
+   - **1. Discover.** Check `.claude/loop-inbox.md` FIRST, before the named
+     decision source below. Missing or empty -- fall through to the normal
+     source, same as any other tick. Non-empty -- its content IS this tick's
+     decision candidate, verbatim; skip discover's own research entirely
+     (including any subagent it would otherwise dispatch), then truncate the
+     file to empty (never delete it) immediately after reading, so a second
+     tick can never consume it again. This is a human drop box for an
+     ephemeral idea, instruction, specific candidate, or research note meant
+     to live for exactly one tick -- not a queue, not a log; the file holds
+     at most one pending note at a time. A candidate already fully drafted
+     (evidence, considered options, everything) can be dropped here to skip
+     straight to whichever gate it still needs -- e.g. GATE A on a record a
+     human drafted directly, never routed through discover at all -- rather
+     than re-deriving it. One instantiation used this exactly that way: a
+     fully-written but ungated decision record, dropped in the inbox with a
+     one-line instruction naming which gate to run, rather than re-authored
+     by the discover subagent from scratch.
+
+     Discover's PRIMARY output is a DECISION CANDIDATE that
      carries into step 2. Name the decision source the operator gave above, and
      say what discover reads when that source is momentarily empty. Defects
      found along the way are SECONDARY -- often worth more than the decision
@@ -519,27 +537,35 @@ Generates, all under the wiki's `.claude/`:
      a solution is made up and presented as an option, but does not work
      at all in the given context" -- a real candidate there became exactly
      this once a new fact invalidated one option's rationale, caught only
-     at the human gate two passes later, not at GATE A. Verdict vocabulary
-     is exactly one of **Reject / Revise / Pass**. Never use "CONFIRMED" or
-     "PLAUSIBLE" for a
-     verdict: "CONFIRMED" collides with the unrelated sense of confirming a
-     defect claim is true (step 1's defect gate), and a machine-read tick
-     could act on the wrong meaning. A prior instantiation used "CONFIRMED" as
-     loose praise for a passing candidate while the spec defined it as reject
-     -- caught only because a human read the prose past the label.
+     at the human gate two passes later, not at GATE A.
 
-     Before ringing any candidate Deferred (back in step 2/Propose, before it
-     reaches GATE A), apply a certainty test: is the stated trigger a genuine
-     contingency that may never occur, or is it the system's normal,
-     guaranteed operating mode? A trigger that has already fired, or that is
-     the only path the system has for a routine action, means the requirement
-     is live NOW -- status Open, not Deferred. GATE A re-checks this test on
-     every Deferred candidate it grades, not only on request: one
-     instantiation deferred "attribute each row to the snapshot it came from"
-     behind "if a second snapshot file is ever ingested," when three dated
-     snapshot files already existed on disk and ingesting successive
-     snapshots was the system's only update path -- the trigger had already
-     fired before the requirement was written.
+     "Sprint or rush" (only one option meaningfully considered) also
+     applies to a CHOSEN MECHANISM's scope, not just the option count: if
+     the candidate's title or problem statement claims class-level scope
+     ("a schema-changing ADR," not "ADR-06" by name), check whether the
+     chosen mechanism's trigger condition is parameterized on
+     runtime-derived state or hardcoded to the one instance already in
+     evidence. A hardcoded literal under a class-level title claim is the
+     same anti-practice as too few options -- only one instance got solved
+     while the title claims to cover the class. One instantiation's GATE A
+     passed a mechanism hardcoded to one column's absence twice before a
+     human caught the mismatch against the ADR's own class-level title --
+     nothing in the rubric tested the mechanism's scope against the
+     title's claim until that gap was named. Skip this sub-check when the
+     title names one specific instance with no generality claim -- nothing
+     to check it against.
+
+     Verdict vocabulary and the Deferred certainty test are stated ONCE,
+     in section 2's `agents/<verifier>.md` generation instructions below
+     -- not repeated here. A rubric detail duplicated in both loop.md's
+     description of GATE A and the verifier's own persisted file is the
+     exact drift this template exists to prevent: one instantiation
+     caught itself doing this to its own generated `loop.md` and fixed it
+     by cross-referencing the verifier file instead of restating the
+     rubric inline. Generate the same way -- loop.md's GATE A step names
+     WHAT happens (dispatch to the verifier, Reject/Revise/Pass outcomes
+     and their effects on ADR status) without re-deriving HOW the
+     verifier grades.
 
      Reject -> set status Rejected, append the findings VERBATIM under a
      `## Gate A Findings` heading, keep it registered, STOP. Never erase: the
@@ -549,12 +575,30 @@ Generates, all under the wiki's `.claude/`:
      B's print-on-park behavior below, so a Rejected outcome is visible at
      tick end, not only on a later read of `decisions/`. Revise -> revise
      once. Pass -> proceed.
-   - **4. GATE B (human)** -- accept / edit / defer / reject / no answer. PRINT
-     the record's title, its considered options and the trade-off, then park it
-     and continue. Do NOT branch on whether a human is present: there is no
-     signal for that, and guessing wrong costs a decision the operator was
-     sitting there ready to make. Commit Accepted AND Rejected records; an
-     uncommitted Rejected record defeats its own purpose.
+   - **4. GATE B (human)** -- accept / edit / defer / reject / hold / no
+     answer. PRINT the record's title, its considered options and the
+     trade-off, then park it and continue. Do NOT branch on whether a human
+     is present: there is no signal for that, and guessing wrong costs a
+     decision the operator was sitting there ready to make. State each
+     outcome's actual effect -- a step whose result is only implied elsewhere
+     is a step half-specified:
+     - Accept -> status `Approved`; proceed to implement (step 5).
+     - Edit -> apply the changes; re-run GATE A; Pass -> `Approved`.
+     - Defer -> add a `Deferred.md` entry with an "Add when" trigger and erase
+       the ADR; the deferral entry is the record, not the ADR file.
+     - Reject -> status `Rejected`, ADR kept as the decision record.
+     - Hold -> stays `Proposed`, but add a `Held: <reason>` line to the ADR.
+       For "right decision, wrong timing" -- agrees with the mechanism but
+       isn't ready to implement yet, and none of Accept (implements
+       immediately), Reject (declines outright, no revisit path most ADR
+       methodologies define), or Defer (needs a real trigger, not just "not
+       yet") fit that shape. A `Held` record does NOT block dispatch rung (c)
+       -- an unanswered `Proposed` record does, but one the human explicitly
+       chose to hold has been answered, just not with a green light yet.
+     - No answer -> stays `Proposed`, no `Held:` line; DOES block rung (c)
+       until answered.
+     Commit `Approved`, `Rejected`, AND `Held` records; an uncommitted
+     `Rejected` record defeats its own purpose.
    - **5. Implement** on the work branch.
    - **6. GATE C (automated)** -- ponytail + the test suite + `check scaffold`
      + idempotency: any diff that writes persistent state (a database, a
@@ -563,6 +607,14 @@ Generates, all under the wiki's `.claude/`:
      blocking finding, not informational -- idempotency is a standing
      invariant to check on every implementation from day one, not a
      requirement to defer until someone notices a re-run happened.
+     Reject -> leave the ADR `Approved`, STOP, surface findings -- do not
+     revert it to `Proposed`, the decision itself still stands, only this
+     implementation attempt failed. Revise -> fix once. Pass -> flip the ADR
+     to `Accepted` and update `Decisions.md`. This is the ONLY step that
+     produces the `Accepted` status: nothing before implementation should
+     ever use that word for a record still awaiting or undergoing
+     implementation -- `Approved` is that state, `Accepted` means GATE C
+     already passed.
    - **7. Fix a defect** (reached only from dispatch b). Apply the DECISION TEST
      first: if a second plausible approach can be named, STOP -- it is a
      decision, not a defect. Then write a test that FAILS against current code,
@@ -582,8 +634,9 @@ Generates, all under the wiki's `.claude/`:
      Anything that must survive belongs in a requirement, a decision record or a
      commit message. Tracking it puts progress events in history and a conflict
      on every wake.
-   - **Cadence** -- name the wakeup delay explicitly, and mark it if it is a
-     testing value.
+   - **Cadence** -- name the wakeup delay explicitly, mark it if it is a
+     testing value, and state that `/loop wake` (or plain `wake`) resumes
+     the loop immediately, ahead of schedule.
    - **Boundaries** -- work only on the branch; NEVER push to any remote.
      Merging and pushing are human actions: a protected default branch means an
      automated push either fails or silently bypasses the protection rule. Also
@@ -596,6 +649,13 @@ Generates, all under the wiki's `.claude/`:
    allow-list entry can prevent it. Creating it here makes every later write an
    Edit. Do not "tidy up" the empty file later; its existence is the fix.
 
+   Same reasoning applies to the inbox: also add `.claude/loop-inbox.md` to
+   the wiki's `.gitignore` (it is a human scratch note, not a reviewed
+   artifact -- tracking it produces the same commit-noise problem
+   `loop-state.json`'s gitignore exists to avoid), and CREATE it now, empty.
+   `.claude/agents/**` needs the same `Edit(path)`-not-`Write(path)` treatment
+   as any other `.claude/` file -- see the allow-list note below.
+
 2. `agents/<verifier>.md` -- a cold grader that never implements or fixes:
    `model`, `effort`, `tools`, `skills: ponytail`. GRANT IT `Grep` AND `Glob`,
    not just `Read, Bash`. An agent whose only search tool is a shell WILL chain
@@ -604,7 +664,18 @@ Generates, all under the wiki's `.claude/`:
    because prose telling it not to chain leaves it no other way to work. Grant
    the search tools and Bash shrinks to the one test command. Never claim in an
    agent body that Grep and Glob are unavailable unless verified: that claim was
-   copied between projects and manufactured the problem it warned about. Its `description` and its
+   copied between projects and manufactured the problem it warned about.
+   IF the rubric ever requires verifying an external URL (an ADR
+   methodology reference, a cited plugin's docs, a PyPI page) -- and GATE
+   A's own ADR.md/Anti-Practices reference means it almost always will --
+   also GRANT IT `WebFetch`, with matching domain entries in the
+   allow-list. Without it the agent falls back to an unlisted `curl`
+   through Bash: a real permission-prompt risk, and a raw fetched page's
+   text is far more likely to trip a prompt-injection heuristic on this
+   agent's own output than a WebFetch summary is -- one instantiation's
+   verifier lacked this grant for several ticks before the gap was
+   noticed, having quietly routed every external-doc check through `curl`
+   the whole time. Its `description` and its
    BODY must both name every artifact it grades (a decision record, a diff, a
    defect claim); a body listing fewer than the description sends it after a
    rubric it has no definition for. Rubric = ponytail + the wiki placement
@@ -619,19 +690,64 @@ Generates, all under the wiki's `.claude/`:
    grading mode would forfeit the only automated gate.
    Verdict vocabulary is exactly one of **Reject / Revise / Pass** -- never
    "CONFIRMED" or "PLAUSIBLE", which collide with the unrelated sense of
-   confirming a defect claim is true. Before treating any candidate as
-   Deferred, apply a certainty test: is the stated trigger a genuine
-   contingency, or the system's normal, guaranteed operating mode? A trigger
-   that has already fired, or is the only path the system has for a routine
-   action, means Open, not Deferred -- flag this as a finding, don't silently
-   wave it through. If the diff under grade (GATE C) writes persistent state,
+   confirming a defect claim is true, and a machine-read tick could act on
+   the wrong meaning: one instantiation used "CONFIRMED" as loose praise
+   for a passing candidate while the spec defined it as reject, caught
+   only because a human read the prose past the label. Before treating
+   any candidate as Deferred, apply a certainty test: is the stated
+   trigger a genuine contingency, or the system's normal, guaranteed
+   operating mode? A trigger that has already fired, or is the only path
+   the system has for a routine action, means Open, not Deferred -- flag
+   this as a finding, don't silently wave it through. One instantiation
+   deferred "attribute each row to the snapshot it came from" behind "if
+   a second snapshot file is ever ingested," when three dated snapshot
+   files already existed on disk and ingesting successive snapshots was
+   the system's only update path -- the trigger had already fired before
+   the requirement was written. If the diff under grade (GATE C) writes persistent state,
    a blocking finding if there is no test proving a second run on the same
    input doesn't corrupt or duplicate data -- idempotency is a standing
    invariant, not something to defer.
-   Output contract: worst-first plain-text findings blocks (plain text until
+   Output contract: a `Permission prompts: none` / `Permission prompts: <call>
+   -- <why>` line FIRST -- before its work is done, the agent checks whether
+   any tool call it made this session failed to match an allow pattern in
+   `.claude/settings.json` (which predicts a user prompt), and states that as
+   one line, always, never silent, exactly like this file's own wire-back
+   check. Describe the outcome in plain prose (name the command, say whether
+   it was covered) -- do NOT quote `.claude/settings.json`'s literal
+   allow/deny pattern syntax (a `Tool(pattern *)`-shaped string) in this
+   line: that bracket/parenthesis config-pattern shape trips the harness's
+   own prompt-injection heuristic on subagent output, producing a
+   false-positive flag on an entirely legitimate report. This is a
+   per-invocation signal that travels with the report the moment it
+   returns; it does not replace `check loop`'s post-run prompt audit, which
+   is a separate, whole-session, human-triggered pass over the transcript.
+   Then worst-first plain-text findings blocks (plain text until
    ReportFindings is confirmed grantable to a subagent). Do NOT put
    output-formatting skills in the rubric: the verifier reports to the loop, not
    to a human, and the block format is answer-first by construction.
+
+   EVERY persisted subagent this section generates (this verifier, and
+   Discover's own file if externalized above) opens its body with the same
+   permission-awareness paragraph, before any other instruction:
+
+   > Before doing anything else: read `.claude/settings.json` (this wiki's
+   > root) to see this run's `permissions.allow`/`deny` patterns. Any call
+   > that matches an allowed pattern needs no extra caution -- proceed
+   > normally. If a needed action has no matching pattern, don't route
+   > around it with a differently-shaped command -- attempt it as normal
+   > (this may prompt for approval if a human is present; if unattended,
+   > the tick may stall until someone notices), and separately report the
+   > gap as a finding (a config gap in the allow-list) so it can be fixed
+   > for future runs.
+
+   These subagents run unattended, sometimes with no human present for the
+   whole tick -- an uncovered pattern the agent avoids silently (or works
+   around with a differently-shaped command) never surfaces as the config
+   gap it is; the operator only learns about it when something the agent
+   quietly skipped turns out to have mattered. Attempting it and reporting
+   the gap keeps the allow-list honest, at the cost of an occasional stalled
+   tick until the gap is noticed and fixed -- a real project chose this
+   trade-off deliberately over silent workarounds.
 3. Permissions posture -- either a scoped `.claude/settings*.json` allow-list, or
    a documented decision to run interactive-only.
 
@@ -650,6 +766,8 @@ Generates, all under the wiki's `.claude/`:
          "Read(//<abs path to dependency source root>/**)",
          "Edit(**)",
          "Edit(.claude/loop-state.json)",
+         "Edit(.claude/loop-inbox.md)",
+         "Edit(.claude/agents/**)",
          "Edit(//<abs path to sibling code repo>/**)",
          "Bash(<test command with its env prefix> *)",
          "Bash(<test runner> *)",
@@ -680,11 +798,23 @@ Generates, all under the wiki's `.claude/`:
          "Bash(find *)",
          "Bash(wc *)",
          "Bash(gh api *)",
-         "Bash(gh search *)"
+         "Bash(gh search *)",
+         "WebFetch(domain:<reference article's host domain>)"
        ]
      }
    }
    ```
+
+   **`.claude/agents/**` and `WebFetch` are both easy to forget because they
+   only bite once a dispatched role actually runs**, not at setup time. If
+   Discover was externalized into its own `agents/<name>.md` (per the
+   Discover section above), it and the verifier both get edited/created by
+   `create loop` itself -- `.claude/**` is specially gated separate from the
+   top-level `Edit(**)`, so without this line every agent-file write prompts.
+   Similarly, `WebFetch` only prompts the first time Discover actually reads
+   its reference article or does research -- easy to ship a loop that runs
+   clean for a few ticks before this gap surfaces. One instantiation hit both
+   only after several real ticks, not during initial setup.
 
    These notes stay HERE, never inside the JSON -- `settings.json` admits no
    comments, and a `//` line makes it unparseable:
@@ -722,7 +852,33 @@ Generates, all under the wiki's `.claude/`:
      `"deny": ["Bash(git push*)", "Bash(git -C <path> push*)"]` block (one
      entry per repo path used), so the boundary holds even when everything
      else is loosened.
-     definitions too.
+   - **This deny block will conflict with a `land loop`-style command**
+     the first time one is added: a deny rule matches by command STRING,
+     not by invocation context, so it cannot distinguish "an autonomous
+     tick pushing" from "a human-triggered land command pushing" when both
+     use the identical `git -C <path> push` form -- one instantiation's
+     `land loop` was blocked outright by its own project's deny rule the
+     first time it ran. Two resolutions, pick one deliberately rather than
+     silently removing the backstop: (a) keep the deny rule and have the
+     land command PRINT the exact push command for the operator to run
+     themselves, never attempting it via Bash; or (b) remove only the
+     specific repo-path deny entry the land command needs and accept that
+     the autonomous loop's "never push" rule is now prose-only (loop.md's
+     Boundaries section), enforced by the agent following instructions,
+     not by permissions -- state this tradeoff explicitly in Boundaries
+     itself if chosen, so it isn't a silent weakening.
+   - **The WIKI repo's own push-deny entry is a different case, usually
+     safe to remove outright.** loop.md never has the loop push the wiki
+     autonomously -- it only commits directly to the wiki's default branch
+     (the wiki is never branched, per its own Setup section), so a deny
+     entry scoped to the wiki repo's push was never actually guarding an
+     autonomous-push path in the first place. It only blocks legitimate
+     human requests to push the wiki (publishing REQ/ADR/Decisions.md
+     updates). Unlike the code repo's entry, removing it does not weaken
+     the loop's own safety boundary -- there is no autonomous wiki-push
+     behavior to protect against. Keep the bare `Bash(git push*)` entry
+     (harmless, matches nothing once every real command uses `-C <path>`)
+     and drop just the wiki-path-scoped one.
    - **Three entries are stack-specific** (the test command, its runner, and
      `make test`). Swap them for your stack's equivalents; if unsure, add
      yours alongside rather than replacing.
@@ -746,6 +902,21 @@ first instantiation (`13coda-cli.wiki`) specialized the work step into "a defect
 fix if one is queued, else a newly discovered pain point proposed as an ADR",
 and validated this shape by closing three requirements with GATE C passing on
 each.
+
+**If the project's discovery step surveys an external solution space** (a
+plugin ecosystem, a library catalog, a tool's own docs -- not just the
+pipeline's own code), give it a pre-Propose self-check: a candidate must name
+>= 2 real alternatives from that space, each with what it specifically solves,
+before it is allowed to become a CANDIDATE at all. One bounded retry (broaden
+the search once) if the first pass falls short of two -- same "revise once"
+discipline as GATE A/GATE C, not an open-ended research spiral. Still short
+after the retry means the gap is REQ-shaped (one obvious fix, no real
+alternative), not ADR-shaped -- return NOTHING with that rationale so a human
+can `add req` it manually if still wanted. GATE A's Anti-Practices check
+("Sprint or rush") already catches a single-option candidate downstream, but
+only after a full Propose write-up; this pre-check catches it before that cost
+is spent, right where the discovery agent is already surveying the solution
+space.
 
 **A loop with only one output type jams on everything else it finds.** If the
 loop can only emit decisions, the defects it turns up while investigating have
