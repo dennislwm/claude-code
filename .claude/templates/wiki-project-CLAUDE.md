@@ -662,6 +662,27 @@ Generates, all under the wiki's `.claude/`:
      Commit `Approved`, `Rejected`, AND `Held` records; an uncommitted
      `Rejected` record defeats its own purpose.
    - **5. Implement** on the work branch.
+
+     **If the Approved mechanism turns out not to actually work** (a real
+     blocker discovered only once implementation starts -- e.g. an assumed
+     data-access path doesn't exist), do NOT silently pivot to a different
+     mechanism and re-run GATE A under the same `Approved` status. That
+     status means GATE B already blessed THIS mechanism specifically; a
+     substituted one hasn't been confirmed by anyone. Two correct paths,
+     pick based on whether a human is actively directing the pivot in
+     conversation right now: (a) no human present or steering it -- follow
+     GATE C's own Reject shape early: leave the ADR `Approved`, STOP,
+     surface the blocker as a finding, let a human decide later; (b) a
+     human IS actively directing the pivot (asked for it, chose the
+     replacement mechanism) -- edit the ADR with the new mechanism, then
+     run a FRESH, EXPLICIT GATE B round on the pivoted mechanism
+     specifically (print title/options/trade-off again, get an explicit
+     answer) before treating it as settled -- the original Accept doesn't
+     carry over to a materially different mechanism just because GATE A
+     re-passed on it. One instantiation conflated this with the (different)
+     case of narrowing an ADR still mid-GATE-B before its first Accept --
+     that precedent doesn't transfer to a mechanism substituted in AFTER
+     Accept.
    - **6. GATE C (automated)** -- ponytail + the test suite + `check scaffold`
      + idempotency: any diff that writes persistent state (a database, a
      file, an external system) must include a test proving a second run on
