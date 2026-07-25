@@ -169,6 +169,7 @@ Read-only scaffold audit of `../<prefix><name>`. Report without editing:
 | Root Python files | Any `.py` or Python config file (e.g. `conftest.py`, `pytest.ini`) at repo root -- per this file's Design consultations note, these belong behind an existing entry point (`Makefile`), not as new root files |
 | Untracked artifacts | Root-level files matching build/output patterns (e.g. model weights, logs, `.DS_Store`) not covered by `.gitignore` |
 | Makefile targets | Any CLI entry point (`__main__` block) in `app/` without a corresponding `Makefile` target |
+| Dependency pins | Every package in the project's dependency manifest (`Pipfile`, `package.json`, etc.) is version-pinned (`==x.y.z` or a bounded range); a bare `"*"` (or unbounded equivalent) is a gap -- an unconstrained package can silently resolve to a breaking new major/pre-release version on a fresh `install`, with no code change to point to. Give it a `Makefile`/task-runner target (e.g. `make check-pins`) per this file's Design consultations note, not a raw command. This also becomes part of GATE C automatically once the target exists, since GATE C already names `check scaffold` as one of its components. |
 
 Output: a short report. No file edits in `../<prefix><name>`.
 
@@ -606,14 +607,24 @@ Generates, all under the wiki's `.claude/`:
      and their effects on ADR status) without re-deriving HOW the
      verifier grades.
 
+     PRINT the record's title and the verdict, always, whatever the verdict:
+     Pass prints title + "Pass", no reason needed (GATE B's print covers the
+     detail next); Revise gets the one-line reason for the revise; Reject
+     gets a one-line pointer to the reason, not the full findings block --
+     the findings stay in the ADR file verbatim under `## Gate A Findings`,
+     the print is a pointer to them, not a duplicate, matching GATE B's
+     print-on-park behavior below so every verdict is visible at tick end,
+     not only on a later read of `decisions/`. Print-with-fallback rule,
+     stated ONCE here and referenced (not repeated) from GATE B below: if a
+     field being printed can't be stated in one sentence, invoke
+     `i-have-adhd:i-have-adhd` to compress it before printing -- never print
+     un-compressed.
+
      Reject -> set status Rejected, append the findings VERBATIM under a
      `## Gate A Findings` heading, keep it registered, STOP. Never erase: the
      Rejected record is what stops the same work being rediscovered, and it
-     keeps the reasoning with the artifact. On Reject, also PRINT the
-     record's title and the Gate A findings before stopping -- matching GATE
-     B's print-on-park behavior below, so a Rejected outcome is visible at
-     tick end, not only on a later read of `decisions/`. Revise -> revise
-     once. Pass -> proceed.
+     keeps the reasoning with the artifact. Revise -> revise once. Pass ->
+     proceed.
 
      **Invariants line, if this project's `Implementation.md` has an
      Invariants section** (standing architectural guarantees, each citing
@@ -634,7 +645,8 @@ Generates, all under the wiki's `.claude/`:
      may never have used) if GATE B accepts it.
    - **4. GATE B (human)** -- accept / edit / defer / reject / hold / no
      answer. PRINT the record's title, its considered options and the
-     trade-off, then park it and continue. Do NOT branch on whether a human
+     trade-off, in one sentence per field, same print-with-fallback rule as
+     GATE A above -- then park it and continue. Do NOT branch on whether a human
      is present: there is no signal for that, and guessing wrong costs a
      decision the operator was sitting there ready to make. State each
      outcome's actual effect -- a step whose result is only implied elsewhere
