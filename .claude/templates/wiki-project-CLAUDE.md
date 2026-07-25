@@ -747,18 +747,30 @@ Generates, all under the wiki's `.claude/`:
      time, or the first tick if none exists yet), never touch it again --
      no more delete-then-recreate dance every tick. Its prompt (plain
      text, not the loop's dynamic-mode sentinel) reads the last-tick
-     timestamp: more recent than one cadence period ago -> `ScheduleWakeup`
+     timestamp: more recent than TWO cadence periods ago -> `ScheduleWakeup`
      already fired, this fallback is stale, no-op and stop (it fires
      again next period on its own, nothing to re-arm); otherwise ->
      `ScheduleWakeup` was missed, run the tick now, then re-arm the next
-     `ScheduleWakeup` only -- the fallback re-arms itself. No-op fallback
-     firings are expected and harmless -- the comparison is relative to
-     "now," not a fixed schedule slot, so a manual wake mid-cycle needs no
-     special-casing, and a fallback firing while a real tick happens to be
-     mid-flight also correctly no-ops (last-tick was already stamped
-     fresh at that tick's start). Primary stays `ScheduleWakeup`; do not
-     replace it with cron. `CronCreate`'s recurring jobs auto-expire after
-     7 days -- re-arm once if that's ever hit.
+     `ScheduleWakeup` only -- the fallback re-arms itself.
+
+     Threshold is TWO cadence periods, not one -- a fixed-grid recurring
+     fallback isn't resynced to each tick's actual completion time the
+     way a one-shot design (re-armed at tick end) would be, so a tick
+     whose own work runs long enough to push the real next tick past one
+     bare cadence period would otherwise trip a false "missed" positive
+     against a primary that's still on schedule. Two cadence periods
+     absorbs that without inventing a separate "typical tick duration"
+     constant. Cost: worst-case detection latency for a genuinely dead
+     session is now ~2x cadence instead of ~cadence+60s -- the correct
+     price for zero false positives.
+
+     No-op fallback firings are expected and harmless -- the comparison is
+     relative to "now," not a fixed schedule slot, so a manual wake mid-cycle
+     needs no special-casing, and a fallback firing while a real tick
+     happens to be mid-flight also correctly no-ops (last-tick was already
+     stamped fresh at that tick's start). Primary stays `ScheduleWakeup`;
+     do not replace it with cron. `CronCreate`'s recurring jobs auto-expire
+     after 7 days -- re-arm once if that's ever hit.
    - **Boundaries** -- work only on the branch; NEVER push to any remote.
      Merging and pushing are human actions: a protected default branch means an
      automated push either fails or silently bypasses the protection rule. Also
