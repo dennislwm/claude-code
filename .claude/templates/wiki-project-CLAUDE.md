@@ -732,30 +732,33 @@ Generates, all under the wiki's `.claude/`:
      the loop-state file's last-tick timestamp -- START, not end, matters:
      a tick's own work (subagent dispatch, gates) can run for minutes, and
      the fallback's freshness check only needs to know the tick BEGAN, not
-     that it finished. If this tick was triggered BY `ScheduleWakeup` (not
-     by the fallback firing), also cancel the currently-armed fallback
-     cron at this same start-of-tick point -- the primary just proved it
-     works, so letting the old fallback fire later only produces a no-op
-     turn. No protection is lost: that fallback was armed relative to the
-     PREVIOUS tick's completion time, never calibrated to cover THIS
-     tick's own duration in the first place. Separately, arm the fallback
-     cron itself at the SAME
-     point as the next `ScheduleWakeup` call -- tick END, using that same
-     "now" -- not at tick start: arming it early drifts its fire time ahead
-     of the real next `ScheduleWakeup` by however long the tick's own work
-     took, causing a false "missed" positive against a wakeup that was
-     never actually missed. One independent ONE-SHOT `CronCreate`
-     (`recurring: false`) for cadence + 60s out from that same "now". Its
-     prompt (plain text, not the loop's dynamic-mode sentinel) reads the
-     last-tick timestamp: more recent than one cadence period ago ->
-     `ScheduleWakeup` already fired, this fallback is stale, no-op and
-     stop; otherwise -> `ScheduleWakeup` was missed, run the tick now, then
-     re-arm both mechanisms. No-op fallback firings are expected and
-     harmless -- the comparison is relative to "now," not a fixed schedule
-     slot, so a manual wake mid-cycle needs no special-casing. Primary
-     stays `ScheduleWakeup`; do not replace it with cron. Keep both arms in
-     sync -- a tick that arms one but not the other silently narrows back
-     to a single point of failure.
+     that it finished.
+
+     The fallback cron itself is RECURRING (`recurring: true`), armed
+     ONCE at cadence + 60s and never re-armed or cancelled by tick logic.
+     A one-shot version (re-armed every tick at tick END, cancelled when
+     the primary proved it worked) was tried first and had a real gap:
+     any stretch of conversation that doesn't run a tick -- a design
+     discussion, an audit, a direct edit -- leaves nothing to re-arm the
+     one-shot after it fires once, so it silently lapses until a human
+     notices and re-arms it by hand; this happened in practice at the
+     first instantiation. `recurring: true` closes the gap by
+     construction and is also simpler: create it once (at `create loop`
+     time, or the first tick if none exists yet), never touch it again --
+     no more delete-then-recreate dance every tick. Its prompt (plain
+     text, not the loop's dynamic-mode sentinel) reads the last-tick
+     timestamp: more recent than one cadence period ago -> `ScheduleWakeup`
+     already fired, this fallback is stale, no-op and stop (it fires
+     again next period on its own, nothing to re-arm); otherwise ->
+     `ScheduleWakeup` was missed, run the tick now, then re-arm the next
+     `ScheduleWakeup` only -- the fallback re-arms itself. No-op fallback
+     firings are expected and harmless -- the comparison is relative to
+     "now," not a fixed schedule slot, so a manual wake mid-cycle needs no
+     special-casing, and a fallback firing while a real tick happens to be
+     mid-flight also correctly no-ops (last-tick was already stamped
+     fresh at that tick's start). Primary stays `ScheduleWakeup`; do not
+     replace it with cron. `CronCreate`'s recurring jobs auto-expire after
+     7 days -- re-arm once if that's ever hit.
    - **Boundaries** -- work only on the branch; NEVER push to any remote.
      Merging and pushing are human actions: a protected default branch means an
      automated push either fails or silently bypasses the protection rule. Also
