@@ -409,6 +409,17 @@ Generates, all under the wiki's `.claude/`:
      from every future discovery.
    - **0. Dispatch**, exactly one, in order:
      a. any Approved decision record -> implement it, lowest number first;
+        else any Rejected decision record carrying `loop: take` (and not
+        also marked `blocked:`) -> re-run GATE A on it, lowest number first
+        (not implement -- GATE A hasn't passed yet). Gets a FRESH "revise
+        once" budget, independent of whatever GATE A history the record
+        already carries -- the prior Rejected verdict is history, not a
+        debt this attempt inherits. If this fresh GATE A run also lands on
+        Reject, the tick MUST append `blocked: <reason>` immediately
+        (mirroring rung (b)'s `blocked:` convention below) so dispatch
+        never re-selects it again next tick -- omitting this step
+        livelocks the queue exactly like the REQ-side livelock this
+        section already warns about at rung (b);
      b. else any Open LOOP-SURFACED requirement (an ADR-derived REQ, a
         confirmed defect recorded as a REQ, or any other REQ this loop itself
         produced) -> fix it, LAZIEST first (fewest lines and files, not
@@ -424,7 +435,15 @@ Generates, all under the wiki's `.claude/`:
         stays in rung (a), never folded in here even though both are
         "approved work": one instantiation initially interleaved ADRs and
         REQs into a single rung by ID before separating them back out to
-        match this rung's original two-tier shape;
+        match this rung's original two-tier shape. `loop: take` ALWAYS means
+        "this content is already fixed and ready to re-grade," never "please
+        figure out what's wrong" -- the human (or an agent acting on the
+        human's explicit instruction) must make the record correct BEFORE
+        adding the marker, not after. This applies identically to `loop:
+        take` on a Rejected ADR (rung (a) above) and on a REQ (this rung).
+        The marker is never removed once dispatched, REQ or ADR alike -- it
+        stays as a permanent record that a human explicitly authorized the
+        work, the same way a `GATE A: Pass` note is never deleted;
      c. else -> discover new work, UNLESS a decision record is already parked
         awaiting the human gate. Never manufacture a second decision while the
         first awaits a call: each parked record excludes its problem space from
@@ -438,21 +457,41 @@ Generates, all under the wiki's `.claude/`:
      wanted, and it stops the queue growing unboundedly.
    - **1. Discover.** Check `.claude/loop-inbox.md` FIRST, before the named
      decision source below. Missing or empty -- fall through to the normal
-     source, same as any other tick. Non-empty -- its content IS this tick's
-     decision candidate, verbatim; skip discover's own research entirely
-     (including any subagent it would otherwise dispatch), then truncate the
-     file to empty (never delete it) immediately after reading, so a second
-     tick can never consume it again. This is a human drop box for an
+     source, same as any other tick. This is a human drop box for an
      ephemeral idea, instruction, specific candidate, or research note meant
      to live for exactly one tick -- not a queue, not a log; the file holds
-     at most one pending note at a time. A candidate already fully drafted
-     (evidence, considered options, everything) can be dropped here to skip
-     straight to whichever gate it still needs -- e.g. GATE A on a record a
-     human drafted directly, never routed through discover at all -- rather
-     than re-deriving it. One instantiation used this exactly that way: a
-     fully-written but ungated decision record, dropped in the inbox with a
-     one-line instruction naming which gate to run, rather than re-authored
-     by the discover subagent from scratch.
+     at most one pending note at a time. Always truncate the file to empty
+     (never delete it) immediately after reading, whichever shape below --
+     so a second tick can never consume it again.
+
+     Non-empty content is one of two shapes, distinguished by a `RESEARCH:`
+     prefix on its first line (reuse whatever bare `word:` marker
+     convention this wiki already has, e.g. a `blocked:` or `loop: take`
+     tag elsewhere in its Requirements table -- don't invent new syntax if
+     one already exists):
+
+     - No `RESEARCH:` prefix -- a finished candidate. Content IS this
+       tick's decision candidate, verbatim; skip discover's own research
+       entirely (including any subagent it would otherwise dispatch),
+       proceed straight to whichever gate it still needs. A candidate
+       already fully drafted (evidence, considered options, everything)
+       can be dropped here to skip straight to GATE A on a record a human
+       drafted directly, never routed through discover at all, rather than
+       re-deriving it. One instantiation used this exactly that way: a
+       fully-written but ungated decision record, dropped in the inbox with
+       a one-line instruction naming which gate to run, rather than
+       re-authored by the discover subagent from scratch.
+     - `RESEARCH:` prefix -- a brief, not a finished candidate. Dispatch
+       discover's own subagent as normal, substituting this brief for
+       whatever priority-ranking step it would otherwise use to pick what
+       to investigate; its full rubric (category-tier gate, eligibility
+       gate, evidence provenance) still applies unchanged. A NOTHING
+       verdict ends the tick the same as any other discover NOTHING -- it
+       is not silently retried or treated as a fallback to the
+       finished-candidate path. Without this shape, "research note" in the
+       sentence above is a claim the mechanism can't actually honor: any
+       non-empty content skipping discover's research is exactly what a
+       genuine research note needs NOT to happen.
 
      Discover's PRIMARY output is a DECISION CANDIDATE that
      carries into step 2. Name the decision source the operator gave above, and
@@ -575,6 +614,24 @@ Generates, all under the wiki's `.claude/`:
      B's print-on-park behavior below, so a Rejected outcome is visible at
      tick end, not only on a later read of `decisions/`. Revise -> revise
      once. Pass -> proceed.
+
+     **Invariants line, if this project's `Implementation.md` has an
+     Invariants section** (standing architectural guarantees, each citing
+     the Accepted ADR that established it -- add this section to
+     `Implementation.md` the first time a second ADR needs to assume a
+     prior one's guarantee still holds, don't pre-build it speculatively).
+     GATE A states one line, always, same shape as any other mandatory
+     stated line in its output contract: `Invariants: none broken` or
+     `Invariants: supersedes ADR-NN -- <invariant name>`. Two states only,
+     not three -- a mechanism that breaks an invariant WITHOUT naming and
+     arguing it is an ordinary Reject with the reason in findings, same as
+     any other unaddressed contradiction with prior art; it is not a
+     separate state. `supersedes` exists only for the one case nothing
+     else expresses: the ADR explicitly names the invariant, argues why it
+     should change, and proposes a real alternative -- not a defect, a
+     normal candidate that also flips the old ADR to `Superseded` (a
+     status this template's own vocabulary already defines but a project
+     may never have used) if GATE B accepts it.
    - **4. GATE B (human)** -- accept / edit / defer / reject / hold / no
      answer. PRINT the record's title, its considered options and the
      trade-off, then park it and continue. Do NOT branch on whether a human
@@ -582,7 +639,12 @@ Generates, all under the wiki's `.claude/`:
      decision the operator was sitting there ready to make. State each
      outcome's actual effect -- a step whose result is only implied elsewhere
      is a step half-specified:
-     - Accept -> status `Approved`; proceed to implement (step 5).
+     - Accept -> status `Approved`; proceed to implement (step 5). If GATE
+       A's Invariants line was `supersedes ADR-NN -- <name>`, ALSO flip
+       ADR-NN's status to `Superseded` and update `Implementation.md`'s
+       invariant entry to match the new mechanism, same tick, no separate
+       gate -- the human's Accept on this record IS the decision to
+       supersede the old one, not a second question.
      - Edit -> apply the changes; re-run GATE A; Pass -> `Approved`.
      - Defer -> add a `Deferred.md` entry with an "Add when" trigger and erase
        the ADR; the deferral entry is the record, not the ADR file.
@@ -615,6 +677,23 @@ Generates, all under the wiki's `.claude/`:
      ever use that word for a record still awaiting or undergoing
      implementation -- `Approved` is that state, `Accepted` means GATE C
      already passed.
+
+     **Invariants check, same `Implementation.md` section as GATE A above,
+     if it exists.** One more mandatory stated line: `Invariants: no
+     change` / `Invariants: new invariant found -- <name>` / `Invariants:
+     VIOLATION -- <name>, <how>`. No change and new-invariant-found are
+     non-blocking; VIOLATION is blocking, same severity as a missing
+     idempotency test. The verifier only REPORTS a new invariant, per its
+     own never-implements-or-fixes boundary -- the TICK writes it into
+     `Implementation.md` immediately, same tick, before GATE C's report is
+     considered done. Do not defer this to a human noticing via `triage`
+     later -- same behavior as this section's own wire-back check
+     propagating to this canonical template right away rather than leaving
+     a nudge. Also PRINT the new invariant's name and one-line description
+     at tick end, same as GATE A's Reject and GATE B's park-and-continue
+     already print their outcomes -- a file write is not itself visible to
+     a human reading the conversation, and a new standing guarantee added
+     silently to a durable reference doc should never be silent.
    - **7. Fix a defect** (reached only from dispatch b). Apply the DECISION TEST
      first: if a second plausible approach can be named, STOP -- it is a
      decision, not a defect. Then write a test that FAILS against current code,
@@ -634,9 +713,49 @@ Generates, all under the wiki's `.claude/`:
      Anything that must survive belongs in a requirement, a decision record or a
      commit message. Tracking it puts progress events in history and a conflict
      on every wake.
-   - **Cadence** -- name the wakeup delay explicitly, mark it if it is a
+   - **Cadence** -- name the wakeup delay explicitly ONCE, mark it if it is a
      testing value, and state that `/loop wake` (or plain `wake`) resumes
-     the loop immediately, ahead of schedule.
+     the loop immediately, ahead of schedule. Everything else in this
+     section refers back to that one number rather than restating it --
+     two literal copies of the delay drift the moment one is tuned.
+
+     Primary wake mechanism is `ScheduleWakeup`, per the `/loop` skill's own
+     instructions (self-pace via `ScheduleWakeup`, not cron) -- do not
+     replace it with cron; a one-shot `CronCreate` needs absolute
+     minute/hour/day-of-month arithmetic recomputed every tick, strictly
+     more failure surface than `ScheduleWakeup`'s single `delaySeconds`.
+
+     Both `ScheduleWakeup` and any cron job are SESSION-SCOPED and die with
+     the session -- neither survives a full session exit. What IS worth
+     catching: `ScheduleWakeup` silently failing to arm while the session
+     stays alive. Fix: at the START of every tick, before dispatch, write
+     the loop-state file's last-tick timestamp -- START, not end, matters:
+     a tick's own work (subagent dispatch, gates) can run for minutes, and
+     the fallback's freshness check only needs to know the tick BEGAN, not
+     that it finished. If this tick was triggered BY `ScheduleWakeup` (not
+     by the fallback firing), also cancel the currently-armed fallback
+     cron at this same start-of-tick point -- the primary just proved it
+     works, so letting the old fallback fire later only produces a no-op
+     turn. No protection is lost: that fallback was armed relative to the
+     PREVIOUS tick's completion time, never calibrated to cover THIS
+     tick's own duration in the first place. Separately, arm the fallback
+     cron itself at the SAME
+     point as the next `ScheduleWakeup` call -- tick END, using that same
+     "now" -- not at tick start: arming it early drifts its fire time ahead
+     of the real next `ScheduleWakeup` by however long the tick's own work
+     took, causing a false "missed" positive against a wakeup that was
+     never actually missed. One independent ONE-SHOT `CronCreate`
+     (`recurring: false`) for cadence + 60s out from that same "now". Its
+     prompt (plain text, not the loop's dynamic-mode sentinel) reads the
+     last-tick timestamp: more recent than one cadence period ago ->
+     `ScheduleWakeup` already fired, this fallback is stale, no-op and
+     stop; otherwise -> `ScheduleWakeup` was missed, run the tick now, then
+     re-arm both mechanisms. No-op fallback firings are expected and
+     harmless -- the comparison is relative to "now," not a fixed schedule
+     slot, so a manual wake mid-cycle needs no special-casing. Primary
+     stays `ScheduleWakeup`; do not replace it with cron. Keep both arms in
+     sync -- a tick that arms one but not the other silently narrows back
+     to a single point of failure.
    - **Boundaries** -- work only on the branch; NEVER push to any remote.
      Merging and pushing are human actions: a protected default branch means an
      automated push either fails or silently bypasses the protection rule. Also
@@ -703,10 +822,18 @@ Generates, all under the wiki's `.claude/`:
    a second snapshot file is ever ingested," when three dated snapshot
    files already existed on disk and ingesting successive snapshots was
    the system's only update path -- the trigger had already fired before
-   the requirement was written. If the diff under grade (GATE C) writes persistent state,
-   a blocking finding if there is no test proving a second run on the same
-   input doesn't corrupt or duplicate data -- idempotency is a standing
-   invariant, not something to defer.
+   the requirement was written. The idempotency requirement for a
+   persistent-state diff is stated ONCE, in loop.md's GATE C step above --
+   not repeated here, same reasoning as the verdict-vocabulary/certainty-test
+   rule two paragraphs up.
+   If this project's `Implementation.md` has an Invariants section, the
+   verifier's output contract also includes the Invariants line described
+   above for both GATE A and GATE C -- the verifier reports (`none broken`
+   / `supersedes ADR-NN` for a decision record, `no change` / `new
+   invariant found` / `VIOLATION` for a diff), it never writes to
+   `Implementation.md` itself, consistent with never implementing or
+   fixing anything.
+
    Output contract: a `Permission prompts: none` / `Permission prompts: <call>
    -- <why>` line FIRST -- before its work is done, the agent checks whether
    any tool call it made this session failed to match an allow pattern in
