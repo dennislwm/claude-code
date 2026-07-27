@@ -402,6 +402,22 @@ Generates, all under the wiki's `.claude/`:
      branch the wiki (every write there is a reviewed artifact, and a wiki work
      branch forces a commit-to-default-then-merge-forward dance for every config
      fix -- 28 merge commits in one day at the first instantiation).
+
+     **Fallback-cron self-heal, checked every Setup, not just once.**
+     `CronCreate` jobs are session-only -- they do not survive a session
+     exit, so "arm it once at `create loop` time" cannot mean "arm it once,
+     ever": every new session starts with zero fallback jobs by
+     construction, whatever a prior session armed. Call `CronList` here,
+     every time Setup runs. If the Cadence section's fallback job
+     (recurring, cadence+60s) is not present, create it now, exactly as
+     specified in the Cadence section below -- do not wait for a tick to
+     notice it's missing, and do not skip this because a tick ran recently
+     (recency of the last-tick timestamp says nothing about whether THIS
+     session's cron survived). A live instantiation went a full session
+     with zero fallback protection this way -- the gap went undetected
+     until a human noticed autonomous wakeups had silently stopped. A
+     mechanism that must be remembered into existence each session is not
+     a fallback.
    - **Each iteration -- 0. BEFORE dispatch**, print any decision record still
      in the Proposed state: title, considered options, the trade-off. Printing
      is not a unit of work and never consumes the tick. Proposed means GATE B is
@@ -650,7 +666,8 @@ Generates, all under the wiki's `.claude/`:
      is present: there is no signal for that, and guessing wrong costs a
      decision the operator was sitting there ready to make. State each
      outcome's actual effect -- a step whose result is only implied elsewhere
-     is a step half-specified:
+     is a step half-specified.
+
      - Accept -> status `Approved`; proceed to implement (step 5). If GATE
        A's Invariants line was `supersedes ADR-NN -- <name>`, ALSO flip
        ADR-NN's status to `Superseded` and update `Implementation.md`'s
@@ -671,6 +688,19 @@ Generates, all under the wiki's `.claude/`:
        chose to hold has been answered, just not with a green light yet.
      - No answer -> stays `Proposed`, no `Held:` line; DOES block rung (c)
        until answered.
+     Whichever outcome above was chosen, state one of: `ScheduleWakeup:
+     re-armed` (the record was answered after the loop had already
+     self-stopped waiting on it -- an answer is new information the moment
+     it lands, and dispatch rung (a)/(c) may now have real work, so re-arm
+     immediately rather than leaving it to the fallback cron's staleness
+     check; without this, an Approved record can sit idle for up to two
+     cadence periods with the operator right there, waiting only on the
+     fallback's own timer) / `ScheduleWakeup: already armed, no action
+     needed` / `ScheduleWakeup: N/A -- answered inside a scheduled tick`.
+     Same forcing-function as GATE A/C's mandatory `Invariants:`/`Permission
+     prompts:` lines -- a re-arm rule that only lives in prose is
+     indistinguishable from a forgotten one.
+
      Commit `Approved`, `Rejected`, AND `Held` records; an uncommitted
      `Rejected` record defeats its own purpose.
    - **5. Implement** on the work branch.
@@ -748,9 +778,13 @@ Generates, all under the wiki's `.claude/`:
      on every wake.
    - **Cadence** -- name the wakeup delay explicitly ONCE, mark it if it is a
      testing value, and state that `/loop wake` (or plain `wake`) resumes
-     the loop immediately, ahead of schedule. Everything else in this
-     section refers back to that one number rather than restating it --
-     two literal copies of the delay drift the moment one is tuned.
+     the loop immediately, ahead of schedule. Default to 20 minutes (1200s)
+     unless the operator names a different value -- this is a starting
+     point to override freely, not a mandate; it exists so each new
+     instantiation isn't inventing an arbitrary number from nothing, the
+     way the first ones did. Everything else in this section refers back
+     to that one number rather than restating it -- two literal copies of
+     the delay drift the moment one is tuned.
 
      Primary wake mechanism is `ScheduleWakeup`, per the `/loop` skill's own
      instructions (self-pace via `ScheduleWakeup`, not cron) -- do not
@@ -1063,6 +1097,63 @@ Generates, all under the wiki's `.claude/`:
      including any tool (WebFetch, WebSearch) it needs. A discovery stage that
      shells out to a sibling CLI or a project script contributes verbs no
      generic list can predict, and the loop prompts at the first thing it does.
+
+4. **Wire-back reminder hooks** -- two `PostToolUse` entries in the same
+   `.claude/settings*.json`, firing after any `Edit`/`Write` to a `*.md`
+   file, MUTUALLY EXCLUSIVE by path so every `.md` file gets exactly one
+   applicable reminder, never both. This is a backstop for a check that
+   has actually been forgotten before (this template's own history: the
+   check was widened once already and still failed to fire twice more after
+   that, because nothing forced it to leave a visible trace) -- not a
+   speculative safeguard. Both are reminders, not gates: `PreToolUse` cannot
+   gate this honestly, because the edit always completes before any denial
+   would land (there is no way to tell "reviewed" from "not reviewed" without
+   the agent self-reporting a marker it could equally fabricate), so both
+   fire on `PostToolUse` and never deny.
+
+   - **Loop-governing files** (`loop.md`, `agents/*.md`, `CLAUDE.md`) --
+     reminds to run ponytail review AND this file's wire-back check.
+   - **Everything else `.md`** (README, ADRs, requirement/test/decision
+     tables, any other project markdown) -- reminds to run ponytail, then
+     tighten prose within EXISTING sections only. Most of an
+     ADHD-formatting skill's rules (lead with next action, number steps)
+     assume a task response and don't fit a decision-record template, so
+     name only the subset that transfers (no preamble, no fluff, one claim
+     per sentence) rather than pointing at the skill wholesale -- and say
+     explicitly not to reorder, remove, or add sections, since an ADR/REQ
+     file's structure is a required template, not free-form prose.
+
+   The exclusion check MUST be case-based (`case "$f" in *pattern) ...`),
+   NOT `grep -v`: `grep -qv` on an empty stdin (a non-`.md` file, where the
+   first filter already produced no output) exits 0 on this platform,
+   which would make the "everything else" hook fire on every non-markdown
+   file too -- a real bug caught only by testing the empty-input case
+   directly, not by testing the positive cases.
+
+   ```json
+   {
+     "hooks": {
+       "PostToolUse": [
+         {
+           "matcher": "Edit|Write",
+           "hooks": [
+             {
+               "type": "command",
+               "command": "jq -r '.tool_input.file_path // empty' | grep -qE '(^|/)(loop\\.md|agents/.*\\.md|CLAUDE\\.md)$' && echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"This edit touched a loop-governing .md file (loop.md/agents/*.md/CLAUDE.md) -- if ponytail review and the wire-back check are not yet done for this change, do them now.\"}}' 2>/dev/null; true"
+             },
+             {
+               "type": "command",
+               "command": "f=$(jq -r '.tool_input.file_path // empty'); case \"$f\" in *loop.md|*agents/*.md|*CLAUDE.md) exit 0;; *.md) echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"This edit touched a non-loop-governing .md file -- if not yet done: run ponytail, then tighten prose within existing sections only (cut fluff, no preamble) -- do not reorder, remove, or add sections.\"}}';; esac"
+             }
+           ]
+         }
+       ]
+     }
+   }
+   ```
+
+   Merge this `hooks` key alongside the `permissions` key from item 3 above,
+   in the same settings file -- do not create a second settings file for it.
 
 **Finish by running `check loop` on what you just generated. It MUST pass.**
 Any finding is a defect in THIS command, not in the scaffold: fix it here
