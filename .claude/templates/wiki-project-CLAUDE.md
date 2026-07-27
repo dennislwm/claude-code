@@ -731,7 +731,14 @@ Generates, all under the wiki's `.claude/`:
      the same input doesn't corrupt or duplicate data. Missing this is a
      blocking finding, not informational -- idempotency is a standing
      invariant to check on every implementation from day one, not a
-     requirement to defer until someone notices a re-run happened.
+     requirement to defer until someone notices a re-run happened. If the
+     diff introduces a new operator-facing manual/usage step (a one-time
+     setup action or a repeatable "how do I use this" instruction), a
+     blocking finding if the project's user-facing README doesn't
+     document it -- same severity as a missing idempotency test. One
+     instantiation hit this twice in a single session (two separate ADRs'
+     manual steps each landed with GATE C already Pass, before README
+     caught up) before this check was added here.
      Reject -> leave the ADR `Approved`, STOP, surface findings -- do not
      revert it to `Proposed`, the decision itself still stands, only this
      implementation attempt failed. Revise -> fix once. Pass -> flip the ADR
