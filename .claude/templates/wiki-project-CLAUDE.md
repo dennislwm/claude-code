@@ -406,6 +406,18 @@ Generates, all under the wiki's `.claude/`:
      branch forces a commit-to-default-then-merge-forward dance for every config
      fix -- 28 merge commits in one day at the first instantiation).
 
+     **Drift check, every Setup.** `git -C <repo> merge-base --is-ancestor
+     <default-branch> <work-branch>` -- if this fails (non-zero exit), the
+     default branch has moved since the work branch branched (e.g. a commit
+     landed directly on it, outside `land loop`'s merge flow). One
+     instantiation hit this for real: a direct-to-default-branch README
+     restructure landed while the loop kept building on the stale branch,
+     producing a structural regression only caught by manual git-history
+     inspection outside the loop. PRINT one line naming the drift and STOP
+     the tick before dispatch; do not auto-merge -- resolving a divergence a
+     human introduced out-of-band is a human call, and merging over it
+     silently removes the only signal it happened.
+
      **Fallback-cron self-heal, checked every Setup, not just once.**
      `CronCreate` jobs are session-only -- they do not survive a session
      exit, so "arm it once at `create loop` time" cannot mean "arm it once,
