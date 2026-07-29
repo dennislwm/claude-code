@@ -38,6 +38,8 @@ Requirements are tracked in `Requirements.md` as a table with columns `ID | Desc
 
 When a requirement is `Deferred`, a corresponding `## REQ-NNN` section must exist in `Deferred.md` with a detailed spec and an "Add when:" trigger condition.
 
+When a loop-driven REQ closes (`Done`/`Accepted`), compress its Notes cell to the final outcome plus a pointer to the implementing commit(s) (e.g. `see <branch>@<sha>`) instead of keeping the full verdict-by-verdict GATE history inline. This is never erasure -- the full history stays in those commits' messages, which is already the authoritative record for it. Only compress on closure: a still-open REQ keeps its full history inline, since nothing else surfaces it during dispatch or audit while it's active.
+
 ### Test IDs (TST-NNN)
 
 Tests are tracked in `Tests.md` as a table with columns `ID | Test | File | REQ | Status`. Each test must link to at least one REQ. Default status for a new test is `Pending`.
@@ -168,7 +170,7 @@ Read-only scaffold audit of `../<prefix><name>`. Report without editing:
 | Layout | `create scaffold`'s minimum layout (`app/`, `tests/`, `Pipfile`, `.gitignore`, `README.md`, `Makefile`, `make.sh`) still present; any domain dir (`input/`, `output/`, `templates/`, `mappings/`) not implied by a current REQ |
 | Root Python files | Any `.py` or Python config file (e.g. `conftest.py`, `pytest.ini`) at repo root -- per this file's Design consultations note, these belong behind an existing entry point (`Makefile`), not as new root files |
 | Untracked artifacts | Root-level files matching build/output patterns (e.g. model weights, logs, `.DS_Store`) not covered by `.gitignore` |
-| Makefile targets | Any CLI entry point (`__main__` block) in `app/` without a corresponding `Makefile` target |
+| Makefile targets | Any CLI entry point (`__main__` block) in `app/` without a corresponding `Makefile` target; any target listed in the runner's own `help`-style output without a corresponding README mention (a target that exists but was never documented) |
 | Dependency pins | Every package in the project's dependency manifest (`Pipfile`, `package.json`, etc.) is version-pinned (`==x.y.z` or a bounded range); a bare `"*"` (or unbounded equivalent) is a gap -- an unconstrained package can silently resolve to a breaking new major/pre-release version on a fresh `install`, with no code change to point to. Give it a `Makefile`/task-runner target (e.g. `make check-pins`) per this file's Design consultations note, not a raw command. This also becomes part of GATE C automatically once the target exists, since GATE C already names `check scaffold` as one of its components. |
 | README structure | 5-point check, only when `README.md` was touched: (1) a Workflow overview near the top, tied to the actual Makefile/task-runner entry point, showing order and why, not a duplicate of the runner's own `help`-style command list; (2) one-time infra/ops setup split from day-to-day usage, pushed to the end (e.g. a "Maintainer setup" section); (3) citation/ADR/REQ links live as a small subnote under the heading, never in the heading text itself; (4) a step whose prose chains 2+ sequential actions/consequences is broken into a sub-list, not a run-on sentence; (5) a prerequisite is a one-clause `Requires: [link]` using a native anchor link, not a separate table. This is also part of GATE C, so future decision-record implementations touching `README.md` get it automatically. |
 
