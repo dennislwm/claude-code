@@ -296,6 +296,30 @@ Generates, all under the wiki's `.claude/`:
      block VERBATIM into the drivers -- url plus its shape, one per line. A
      driver the gate cannot check reads as unevidenced, and unevidenced is
      exactly what ponytail's rung 1 discards.
+
+     **Mocks for UI-bearing options**, when this project has any UI surface
+     at all (skip this whole block otherwise -- a backend-only or CLI-only
+     project has no "UI-bearing option" to mock). Before the record reaches
+     GATE A, every considered option that introduces new or changed UI
+     (names a widget, screen, or layout) needs a saved mock file in this
+     project's mock directory -- a status-quo/no-op option needs none. If
+     one is missing, dispatch a mock-building subagent: give it the
+     option's own text plus any existing files in the mock directory as
+     style/convention reference, and have it produce one self-contained
+     mock file in the same convention. Bar to hit: a layout reference
+     showing the actual structure the option proposes, not a polished
+     design deliverable. When citing the mock in the record's References,
+     link both the raw repo-relative path and a rendered-preview URL: a
+     GitHub-wiki-hosted raw file serves as `text/plain` with `nosniff`
+     (deliberate on GitHub's part, to stop raw content executing as a
+     page), so a browser shows source text, not the rendered mock -- wrap
+     the raw URL with `https://htmlpreview.github.io/?<raw-url>` so the
+     link actually renders. Keep the raw link too, not instead of it: it
+     is the authoritative citation (the actual committed git blob, same as
+     every other evidence citation), while the rendered link is only a
+     convenience for the human at GATE B -- `htmlpreview.github.io` is a
+     third-party service this project doesn't control, so it is never the
+     only pointer to what is actually in the repo.
    - **3. GATE A (automated, ponytail)** -- if this project's CLAUDE.md
      references an authoritative ADR methodology document (its own
      equivalent of an Anti-Practices list and Definition of Done
@@ -381,8 +405,14 @@ Generates, all under the wiki's `.claude/`:
      outcome's actual effect -- a step whose result is only implied elsewhere
      is a step half-specified.
 
-     - Accept -> status `Approved`; proceed to implement (step 5). If GATE
-       A's Invariants line was `supersedes ADR-NN -- <name>`, ALSO flip
+     - Accept -> status `Approved`. Before Implement, file ONE REQ now if
+       none exists yet for this ADR (status Open, description mirroring
+       the accepted option, Notes citing this ADR by number and the
+       accepted option's mock file path, if one exists) -- same
+       tick, no separate gate, since an ADR-derived REQ does not get its
+       own GATE B (only ADRs do). Implement (step 5) always operates on
+       this REQ, never the ADR text directly. If GATE A's
+       Invariants line was `supersedes ADR-NN -- <name>`, ALSO flip
        ADR-NN's status to `Superseded` and update `Implementation.md`'s
        invariant entry to match the new mechanism, same tick, no separate
        gate -- the human's Accept on this record IS the decision to
@@ -401,22 +431,10 @@ Generates, all under the wiki's `.claude/`:
        chose to hold has been answered, just not with a green light yet.
      - No answer -> stays `Proposed`, no `Held:` line; DOES block rung (c)
        until answered.
-     Whichever outcome above was chosen, state one of: `ScheduleWakeup:
-     re-armed` (the record was answered after the loop had already
-     self-stopped waiting on it -- an answer is new information the moment
-     it lands, and dispatch rung (a)/(c) may now have real work, so re-arm
-     immediately rather than leaving it to the fallback cron's staleness
-     check; without this, an Approved record can sit idle for up to two
-     cadence periods with the operator right there, waiting only on the
-     fallback's own timer) / `ScheduleWakeup: already armed, no action
-     needed` / `ScheduleWakeup: N/A -- answered inside a scheduled tick`.
-     Same forcing-function as GATE A/C's mandatory `Invariants:`/`Permission
-     prompts:` lines -- a re-arm rule that only lives in prose is
-     indistinguishable from a forgotten one.
-
      Commit `Approved`, `Rejected`, AND `Held` records; an uncommitted
      `Rejected` record defeats its own purpose.
-   - **5. Implement** on the work branch.
+   - **5. Implement** on the work branch. Implement the REQ that GATE B's
+     Accept branch filed for this ADR.
 
      **If the Approved mechanism turns out not to actually work** (a real
      blocker discovered only once implementation starts -- e.g. an assumed
@@ -481,6 +499,23 @@ Generates, all under the wiki's `.claude/`:
      their outcomes -- a file write is not itself visible to a human
      reading the conversation, and a new standing guarantee added silently
      to a durable reference doc should never be silent.
+
+     **Coverage check.** One more mandatory stated line: `Coverage:
+     complete` / `Coverage: gap found -- <description>`. Reads the
+     originating ADR's Considered Options and Consequences, not just this
+     REQ's own text, and checks whether the just-implemented diff leaves
+     a named site or behavior uncovered -- when the REQ's Notes cite a
+     mock file (see Propose's mock-for-UI-bearing-options rule above),
+     this includes checking whether the diff's actual UI matches it, a
+     mock being a literal expression of what the accepted option
+     promised. Non-blocking -- a coverage gap
+     does not invalidate the current REQ's own Pass; on `gap found`, the
+     TICK (not the verifier) files the new REQ immediately (status Open,
+     Notes citing both the ADR and this REQ), same tick, no extra gate,
+     since GATE C's own trace already verified the gap the same way a
+     defect claim would be verified. Also PRINT the new REQ's number and
+     one-line description at tick end, same as the Invariants check's own
+     new-invariant print.
    - **7. Fix a defect** (reached only from dispatch b). Apply the DECISION TEST
      first: if a second plausible approach can be named, STOP -- it is a
      decision, not a defect. Then write a test that FAILS against current code,
@@ -500,68 +535,47 @@ Generates, all under the wiki's `.claude/`:
      Anything that must survive belongs in a requirement, a decision record or a
      commit message. Tracking it puts progress events in history and a conflict
      on every wake.
-   - **Cadence** -- name the wakeup delay explicitly ONCE, mark it if it is a
-     testing value, and state that `/loop wake` (or plain `wake`) resumes
-     the loop immediately, ahead of schedule. Default to 20 minutes (1200s)
-     unless the operator names a different value -- this is a starting
-     point to override freely, not a mandate; it exists so each new
-     instantiation isn't inventing an arbitrary number from nothing, the
-     way the first ones did. Everything else in this section refers back
-     to that one number rather than restating it -- two literal copies of
-     the delay drift the moment one is tuned.
+   - **Cadence** -- name the wakeup delay explicitly ONCE, and state that
+     `/loop wake` (or plain `wake`) resumes the loop immediately, ahead of
+     schedule. Default to 20 minutes (1200s) unless the operator names a
+     different value -- this is a starting point to override freely, not a
+     mandate. Everything else in this section refers back to that one
+     number rather than restating it -- two literal copies of the delay
+     drift the moment one is tuned.
 
-     Primary wake mechanism is `ScheduleWakeup`, per the `/loop` skill's own
-     instructions (self-pace via `ScheduleWakeup`, not cron) -- do not
-     replace it with cron; a one-shot `CronCreate` needs absolute
-     minute/hour/day-of-month arithmetic recomputed every tick, strictly
-     more failure surface than `ScheduleWakeup`'s single `delaySeconds`.
+     Sole wake mechanism is a recurring `CronCreate` job, armed ONCE
+     (`recurring: true`, cadence seconds) at generation time or the first
+     tick if none exists yet -- never re-armed or cancelled by tick logic.
+     `ScheduleWakeup` was tried first as the primary mechanism (per the
+     `/loop` skill's own instructions) with this cron as a fallback for it
+     silently failing to arm; dropped after repeated observed failures to
+     fire across multiple sessions and projects, with no way to diagnose
+     the cause from inside this project's own tools. One recurring cron
+     job is now the whole mechanism, not a backup for one that couldn't be
+     trusted.
 
-     Both `ScheduleWakeup` and any cron job are SESSION-SCOPED and die with
-     the session -- neither survives a full session exit. What IS worth
-     catching: `ScheduleWakeup` silently failing to arm while the session
-     stays alive. Fix: at the START of every tick, before dispatch, write
-     the loop-state file's last-tick timestamp -- START, not end, matters:
-     a tick's own work (subagent dispatch, gates) can run for minutes, and
-     the fallback's freshness check only needs to know the tick BEGAN, not
-     that it finished.
+     At the START of every tick, before dispatch: write the loop-state
+     file's last-tick timestamp -- this is what the next firing compares
+     against. Its prompt (plain text, not the loop's dynamic-mode
+     sentinel): read the last-tick timestamp; more recent than cadence
+     seconds ago -> a tick already began this period, no-op and stop (the
+     next firing picks up any real work); otherwise -> run the tick now.
 
-     The fallback cron itself is RECURRING (`recurring: true`), armed
-     ONCE at cadence + 60s and never re-armed or cancelled by tick logic.
-     A one-shot version (re-armed every tick at tick END, cancelled when
-     the primary proved it worked) was tried first and had a real gap:
-     any stretch of conversation that doesn't run a tick -- a design
-     discussion, an audit, a direct edit -- leaves nothing to re-arm the
-     one-shot after it fires once, so it silently lapses until a human
-     notices and re-arms it by hand; this happened in practice at the
-     first instantiation. `recurring: true` closes the gap by
-     construction and is also simpler: create it once (at generation
-     time, or the first tick if none exists yet), never touch it again --
-     no more delete-then-recreate dance every tick. Its prompt (plain
-     text, not the loop's dynamic-mode sentinel) reads the last-tick
-     timestamp: more recent than TWO cadence periods ago -> `ScheduleWakeup`
-     already fired, this fallback is stale, no-op and stop (it fires
-     again next period on its own, nothing to re-arm); otherwise ->
-     `ScheduleWakeup` was missed, run the tick now, then re-arm the next
-     `ScheduleWakeup` only -- the fallback re-arms itself.
+     No primary/fallback split, no re-arming -- one recurring job is the
+     whole mechanism. `CronCreate`'s recurring jobs auto-expire after 7
+     days -- re-arm once if that's ever hit.
 
-     Threshold is TWO cadence periods, not one -- a fixed-grid recurring
-     fallback isn't resynced to each tick's actual completion time the
-     way a one-shot design (re-armed at tick end) would be, so a tick
-     whose own work runs long enough to push the real next tick past one
-     bare cadence period would otherwise trip a false "missed" positive
-     against a primary that's still on schedule. Two cadence periods
-     absorbs that without inventing a separate "typical tick duration"
-     constant. Cost: worst-case detection latency for a genuinely dead
-     session is now ~2x cadence instead of ~cadence+60s -- the correct
-     price for zero false positives.
-
-     No-op fallback firings are expected and harmless -- the comparison is
-     relative to "now," not a fixed schedule slot, so a manual wake mid-cycle
-     needs no special-casing, and a fallback firing while a real tick
-     happens to be mid-flight also correctly no-ops (last-tick was already
-     stamped fresh at that tick's start). Primary stays `ScheduleWakeup`;
-     do not replace it with cron. `CronCreate`'s recurring jobs auto-expire
-     after 7 days -- re-arm once if that's ever hit.
+     **`/loop` dynamic-pacing collision.** A tick invoked through the
+     generic `/loop` skill's dynamic-pacing wrapper (a `ScheduleWakeup`-
+     based re-entry, not a cron firing) still runs Setup's cron self-heal
+     first -- confirm or create the job above. Once confirmed armed, do
+     NOT also call `ScheduleWakeup` at tick end: that re-introduces the
+     exact primary/fallback split this section already dropped. Let the
+     wrapper's own dynamic loop end silently; the cron job is what wakes
+     the next tick. Observed in the first generated loop: a session ran
+     several ticks under the dynamic wrapper, re-arming `ScheduleWakeup`
+     every time without ever checking whether cron was already armed --
+     two live wake mechanisms running in parallel until caught by hand.
    - **Boundaries** -- work only on the branch; NEVER push to any remote.
      Merging and pushing are human actions: a protected default branch means an
      automated push either fails or silently bypasses the protection rule. Also
@@ -644,6 +658,22 @@ Generates, all under the wiki's `.claude/`:
    invariant found` / `VIOLATION` for a diff), it never writes to
    `Implementation.md` itself, consistent with never implementing or
    fixing anything.
+
+   **Mockup check**, when this project has any UI surface at all (skip
+   this whole requirement otherwise -- a backend-only or CLI-only project
+   has no UI-bearing option to check). For EACH considered option that
+   introduces new or changed UI (names a widget, screen, or layout
+   mechanism) -- not just the ADR as a whole -- the verifier checks
+   whether a corresponding mock file exists in this project's mock
+   directory (per Propose's mock-for-UI-bearing-options rule above). A
+   status-quo/no-op option needs none. State one line per UI-bearing
+   option, always: `Mockup: <option> -- <path>, exists` / `Mockup:
+   <option> -- none found`. BLOCKING: a UI-bearing option missing a mock
+   is a Revise/Reject finding, same severity as any other unaddressed
+   Definition of Done gap. A Rejected option's mock is never deleted for
+   not winning -- it stays as part of the record the human saw and
+   declined, same as this template's own Rejected-status vocabulary
+   ("kept as a record of the decision").
 
    Output contract: a `Permission prompts: none` / `Permission prompts: <call>
    -- <why>` line FIRST -- before its work is done, the agent checks whether
@@ -843,7 +873,8 @@ Generates, all under the wiki's `.claude/`:
      reminds to run ponytail review AND this project's wire-back check.
    - **Everything else `.md`** (README, ADRs, requirement/test/decision
      tables, any other project markdown) -- reminds to run ponytail, then
-     tighten prose within EXISTING sections only. Most of an
+     tighten prose within EXISTING sections only, then run
+     `simple-english` if installed. Most of an
      ADHD-formatting skill's rules (lead with next action, number steps)
      assume a task response and don't fit a decision-record template, so
      name only the subset that transfers (no preamble, no fluff, one claim
@@ -871,7 +902,7 @@ Generates, all under the wiki's `.claude/`:
              },
              {
                "type": "command",
-               "command": "f=$(jq -r '.tool_input.file_path // empty'); case \"$f\" in *loop.md|*agents/*.md|*CLAUDE.md) exit 0;; *.md) echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"This edit touched a non-loop-governing .md file -- if not yet done: run ponytail, then tighten prose within existing sections only (cut fluff, no preamble) -- do not reorder, remove, or add sections.\"}}';; esac"
+               "command": "f=$(jq -r '.tool_input.file_path // empty'); case \"$f\" in *loop.md|*agents/*.md|*CLAUDE.md) exit 0;; *.md) echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"This edit touched a non-loop-governing .md file -- if not yet done: run ponytail, then tighten prose within existing sections only (cut fluff, no preamble), then run simple-english if installed -- do not reorder, remove, or add sections.\"}}';; esac"
              }
            ]
          }
@@ -908,20 +939,33 @@ fix if one is queued, else a newly discovered pain point proposed as an ADR",
 and validated this shape by closing three requirements with GATE C passing on
 each.
 
-**If the project's discovery step surveys an external solution space** (a
-plugin ecosystem, a library catalog, a tool's own docs -- not just the
-pipeline's own code), give it a pre-Propose self-check: a candidate must name
->= 2 real alternatives from that space, each with what it specifically solves,
-before it is allowed to become a CANDIDATE at all. One bounded retry (broaden
-the search once) if the first pass falls short of two -- same "revise once"
-discipline as GATE A/GATE C, not an open-ended research spiral. Still short
-after the retry means the gap is REQ-shaped (one obvious fix, no real
-alternative), not ADR-shaped -- return NOTHING with that rationale so a human
-can `add req` it manually if still wanted. GATE A's Anti-Practices check
-("Sprint or rush") already catches a single-option candidate downstream, but
-only after a full Propose write-up; this pre-check catches it before that cost
-is spent, right where the discovery agent is already surveying the solution
-space.
+**Every generated discovery agent gets a category-tier gate. Unconditional
+-- never omitted, whatever this project's discovery step turns out to look
+like.** Do not gate this section behind a generation-time guess about
+whether an external solution space applies; the agent itself identifies the
+solution space appropriate to its own project's stack at runtime, when it
+actually has a candidate in hand -- a package registry, official platform
+docs, or a precedent/sibling project's already-adjudicated decisions.
+Reframing an already-adjudicated PROBLEM from a sibling project counts the
+same as surveying a plugin ecosystem: stripping the source's mechanism (by
+design, so its stack-specific solution doesn't leak in) leaves the CURRENT
+project's own solution space just as unsurveyed as a problem with no
+precedent at all -- the sibling settling its own problem/solution pair once
+is not evidence this project's stack already has (or lacks) a fitting
+solution.
+
+Give the agent this self-check: state which solution space applies and
+why, then name >= 2 real alternatives from it, each with what it
+specifically solves, before a candidate is allowed to exist at all. One
+bounded retry (broaden the search once) if the first pass falls short of
+two -- same "revise once" discipline as GATE A/GATE C, not an open-ended
+research spiral. Still short after the retry means the gap is REQ-shaped
+(one obvious fix, no real alternative), not ADR-shaped -- return NOTHING
+with that rationale so a human can `add req` it manually if still wanted.
+GATE A's Anti-Practices check ("Sprint or rush") already catches a
+single-option candidate downstream, but only after a full Propose
+write-up; this pre-check catches it before that cost is spent, right where
+the discovery agent is already surveying the solution space.
 
 **A loop with only one output type jams on everything else it finds.** If the
 loop can only emit decisions, the defects it turns up while investigating have
@@ -966,6 +1010,7 @@ editing whether the loop is completely and safely configured.
 |---|---|
 | Loop spec | `<wiki>/.claude/loop.md` exists and states: a goal, a bound on the success path (either an iteration cap with a self-stop, or a human gate that fires every iteration), a work step, an audit step that spawns the verifier, an escalation contract (what STOPS vs. what retries), and branch/secret/network boundaries |
 | Persisted subagents | For EVERY role loop.md dispatches as its own subagent call (the verifier, Discover if it does open-ended research, any future role) -- a `<wiki>/.claude/agents/*.md` exists with `model`, `effort`, `tools`, and a rubric plus an output contract; it is referenced by name in loop.md; AND every command its own rubric names exists in this file. References run both ways: a rubric saying "run this project's own check-command per this wiki's CLAUDE.md" against a wiki that never defined that command sends the verifier after something undefined on every diff, silently. An asymmetry across roles (one dispatched role externalized, another left as inline prose + an ad-hoc `Agent()` call) is itself a finding, even with no functional bug -- it means that role's tool-use discipline lives nowhere the agent reading only its own file can see it |
+| Category-tier gate | Every discovery agent has a category-tier gate section: unconditional, never omitted for any project shape. It must require the agent to state which external solution space applies to its own stack before searching, name >= 2 real alternatives from that space, allow one bounded retry, and return NOTHING (REQ-shaped) if still short after the retry. A discovery agent missing this section, or gating it behind a generation-time "if this project surveys an external space" condition, is a finding -- the condition itself was removed from the generator, so a still-conditional copy is stale, not a deliberate per-project choice |
 | State | loop.md names a loop-state location (e.g. `.claude/loop-state.json`) kept separate from human-facing files, and that file is GITIGNORED. Tracking it puts progress events in history and a merge conflict on every wake -- 47 lines of them in one day. Anything that must survive belongs in a REQ, an ADR or a commit message; if loop.md both calls the file wipeable and tracks it, that is the contradiction, not the gitignore |
 | Permissions | The allow-list covers EVERY mutation class the loop performs -- file edits and writes as well as git verbs -- or a documented decision to run interactive-only. A partial allow-list is indistinguishable from none: each uncovered call still prompts |
 | Tooling rules | loop.md's tooling rules match the tools actually available in the session (a rule mandating an unavailable tool stalls every iteration and forces a fallback), and forbid chained Bash -- `cd X && ...` and any `&&`, `\|\|`, `;`, or subshell join. Chaining is what defeats auto-allow: the same programs run unchained do not prompt. A pipe counts as chaining, so does `$(...)`, and so does `2>/dev/null` (which additionally hides the error that explains the failure). loop.md must also forbid editing by blind in-place regex (`sed -i`) and require the Edit tool: a regex rewrites every match at once with no diff, and one such call widened a fix across a whole file and took three more `sed` calls to undo, the last computing line ranges from a file the earlier two had already rewritten. Put these rules ABOVE the dispatch step, not in a tooling section at the end -- a rule 140 lines below the step being executed is a rule the loop has already walked past |
