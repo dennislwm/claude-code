@@ -699,6 +699,17 @@ Generates, all under the wiki's `.claude/`:
    declined, same as this template's own Rejected-status vocabulary
    ("kept as a record of the decision").
 
+   **Mock feasibility, part of the Mockup check.** A mock's every visual
+   claim must be checked against what the option's cited mechanism can
+   actually produce -- not just that the mechanism exists. State one line
+   per UI-bearing option: `Feasibility: <mechanism> renders the mock's
+   layout as shown` / `Feasibility: <mechanism>'s <constraint> does not
+   support <mock element>, not verified`. "The cited API is real" and
+   "the cited API can render this specific layout" are different claims
+   -- only the first is covered by the existing Decision Driver review
+   above. BLOCKING: an unverified or negative answer here is a
+   Revise/Reject finding, same severity as a missing mock.
+
    Output contract: a `Permission prompts: none` / `Permission prompts: <call>
    -- <why>` line FIRST -- before its work is done, the agent checks whether
    any tool call it made this session failed to match an allow pattern in
