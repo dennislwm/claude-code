@@ -51,7 +51,7 @@ Tests are tracked in `Tests.md` as a table with columns `ID | Test | File | REQ 
 ADRs follow the full format defined in [playradar wiki ADR](https://github.com/<owner>/playradar/wiki/ADR):
 
 - Frontmatter: `status`, `date`, `deciders`
-- Sections: Context and Problem Statement, Decision Drivers, Considered Options (minimum two), Decision Outcome, Consequences
+- Sections: Context and Problem Statement, Decision Drivers, Considered Options (minimum two genuine mechanisms), Decision Outcome, Consequences. Status quo/no-op never counts toward this minimum and must not appear as a numbered option -- its deficiency is already the reason the ADR exists, stated in Context and Problem Statement, so re-listing it as "Option N: Status quo -- Rejected" is boilerplate, not a decision. If only one genuine mechanism exists, that means discovery/proposal isn't done yet, not that status quo may stand in as the second option.
 - Status values: `Proposed`, `Approved`, `Rejected`, `Accepted`, `Deprecated`, `Superseded`. `Rejected` = proposed but declined, never adopted (kept as a record of the decision). `Approved` = GATE B accepted it, not yet implemented. `Accepted` = GATE C passed after implementation -- these are two distinct states in the loop's own flow (`Proposed` -> GATE B accept -> `Approved` -> implement -> GATE C pass -> `Accepted`), not interchangeable words for the same thing. A `Proposed` record can also carry a `Held: <reason>` line (see `create loop`'s GATE B) -- this is a modifier on `Proposed`, not a sixth status value.
 - Files: `decisions/adr-NN-short-title.md`; register in `Decisions.md` index after creating
 

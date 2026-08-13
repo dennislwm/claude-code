@@ -342,6 +342,16 @@ Generates, all under the wiki's `.claude/`:
      same anti-practice as too few options -- only one instance got solved
      while the title claims to cover the class. One instantiation's GATE A
      passed a mechanism hardcoded to one column's absence twice before a
+     later fix caught it.
+
+     Status quo/no-op never counts toward the >=2-options minimum and must
+     never appear as a numbered Considered Option -- its deficiency is
+     already the reason the candidate exists, stated in Context and
+     Problem Statement, so re-listing it as "Option N: Status quo --
+     Rejected" is boilerplate, not a decision, and a record padded this
+     way to hit the minimum is a "Sprint or rush" finding, not a Pass. One
+     genuine mechanism plus a listed status-quo option means discovery
+     isn't done yet, not that the record is ready for GATE B.
      human caught the mismatch against the ADR's own class-level title --
      nothing in the rubric tested the mechanism's scope against the
      title's claim until that gap was named. Skip this sub-check when the
