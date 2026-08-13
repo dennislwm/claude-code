@@ -409,7 +409,8 @@ Generates, all under the wiki's `.claude/`:
    - **4. GATE B (human)** -- accept / edit / defer / reject / hold / no
      answer. PRINT the record's title, its considered options and the
      trade-off, in one sentence per field, same print-with-fallback rule as
-     GATE A above -- then park it and continue. Do NOT branch on whether a human
+     GATE A above -- offer the GATE B comparison checklist below -- then
+     park it and continue. Do NOT branch on whether a human
      is present: there is no signal for that, and guessing wrong costs a
      decision the operator was sitting there ready to make. State each
      outcome's actual effect -- a step whose result is only implied elsewhere
@@ -441,6 +442,19 @@ Generates, all under the wiki's `.claude/`:
        chose to hold has been answered, just not with a green light yet.
      - No answer -> stays `Proposed`, no `Held:` line; DOES block rung (c)
        until answered.
+
+     **GATE B comparison checklist.** Every record, right after the print
+     above, one line: "Want the full option comparison (persistence / user
+     friendliness / reliability / idempotency / risks / dependencies /
+     future-proofing / maintainability / costs / benefits / performance /
+     UI-reactivity / public issues research / library maturity / active
+     maintenance / official-package status) before deciding?" Yes -> invoke
+     the `i-have-adhd` skill (if installed; otherwise just answer plainly)
+     and run the comparison inline, one pass per option, in that format.
+     Otherwise -> skip, no wasted research. Additive list -- append axes as
+     a project's own operator asks for new ones over time, never remove one
+     already asked for.
+
      Commit `Approved`, `Rejected`, AND `Held` records; an uncommitted
      `Rejected` record defeats its own purpose.
    - **5. Implement** on the work branch. Implement the REQ that GATE B's
