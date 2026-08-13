@@ -540,6 +540,18 @@ Generates, all under the wiki's `.claude/`:
      defect claim would be verified. Also PRINT the new REQ's number and
      one-line description at tick end, same as the Invariants check's own
      new-invariant print.
+
+     **Duplication check.** One more mandatory stated line, same shape as
+     `Coverage`: `Duplication: none found` / `Duplication: repeats
+     <existing location> -- <one-line reason a shared version wasn't
+     used>`. Non-blocking. Checks whether this diff introduces a shape (a
+     class, function, or pattern) that already has a real, existing
+     instance elsewhere, without reusing or extracting a shared version.
+     A negative result only means no duplicate was found by name/structure
+     match; it does not prove no semantically-equivalent pattern exists
+     elsewhere under a different name or shape. Verified by grepping the
+     whole codebase -- not just the diff's own files -- for an existing
+     instance of the same shape the diff just added.
    - **7. Fix a defect** (reached only from dispatch b). Apply the DECISION TEST
      first: if a second plausible approach can be named, STOP -- it is a
      decision, not a defect. Then write a test that FAILS against current code,
