@@ -154,10 +154,13 @@ Generates, all under the wiki's `.claude/`:
         confirmed defect recorded as a REQ, or any other REQ this loop itself
         produced) -> fix it, LAZIEST first (fewest lines and files, not
         oldest), skipping any marked `blocked:`. Loop-surfaced means its
-        Notes carry a recorded GATE A Pass verdict -- not merely a status of
-        Open, which a human can set directly via `add req` with zero gating.
-        A pre-loop backlog item is NEVER loop-surfaced, whatever evidence it
-        carries: provenance bars it, not evidence quality, or any backlog item
+        Notes carry either a recorded GATE A Pass verdict (ADR-derived REQ)
+        or a cited, verified defect trace (confirmed-defect REQ, per step 1's
+        Defects rule below -- these skip GATE A/B entirely, a bug needs only
+        verifying, not deciding) -- not merely a status of Open, which a
+        human can set directly via `add req` with zero gating. A pre-loop
+        backlog item is NEVER loop-surfaced, whatever evidence it carries:
+        provenance bars it, not evidence quality, or any backlog item
         becomes eligible simply by being annotated later. The operator hands
         one over with an explicit `loop: take` marker in its Notes -- that
         marker and nothing else. Never hand-write a gate verdict the gate did
@@ -278,8 +281,10 @@ Generates, all under the wiki's `.claude/`:
      the cited file:line trace verifies against the code; nothing sanctions the
      behaviour or forbids the obvious fix; not already covered.
 
-     Either way: CONFIRMED -> record it. DISCARD/unverified -> record it as
-     Rejected WITH the reason; never delete, or the same non-finding is
+     Either way: CONFIRMED -> record as an Open REQ with Notes citing the
+     verified trace -- defects skip GATE A/B entirely, since a bug is a bug
+     and needs only verifying, not deciding. DISCARD/unverified -> record it
+     as Rejected WITH the reason; never delete, or the same non-finding is
      re-filed next run. REFRAME -> correct the framing, then record.
 
      STATE THE EXIT. The tick ends at steps 2-4 or step 7 -- NEVER on a recorded
