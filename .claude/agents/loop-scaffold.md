@@ -138,9 +138,14 @@ Generates, all under the wiki's `.claude/`:
      is invisible to the loop forever while silently excluding its problem space
      from every future discovery.
    - **0. Dispatch**, exactly one, in order:
-     a. any Approved decision record -> implement it, lowest number first;
-        else any Rejected decision record carrying `loop: take` (and not
-        also marked `blocked:`) -> re-run GATE A on it, lowest number first
+     a. any Approved decision record whose filed REQ is not marked
+        `blocked:` -> implement it, lowest number first (an Implement-step
+        STOP that leaves the ADR Approved but marks its REQ `blocked:`
+        must be skipped here on future ticks, or dispatch re-selects the
+        same record and rediscovers the identical blocker every time --
+        mirror rung (b)'s skip below); else any Rejected decision record
+        carrying `loop: take` (and not also marked `blocked:`) -> re-run
+        GATE A on it, lowest number first
         (not implement -- GATE A hasn't passed yet). Gets a FRESH "revise
         once" budget, independent of whatever GATE A history the record
         already carries -- the prior Rejected verdict is history, not a
@@ -486,7 +491,10 @@ Generates, all under the wiki's `.claude/`:
      pick based on whether a human is actively directing the pivot in
      conversation right now: (a) no human present or steering it -- follow
      GATE C's own Reject shape early: leave the ADR `Approved`, STOP,
-     surface the blocker as a finding, let a human decide later; (b) a
+     surface the blocker as a finding, let a human decide later -- mark
+     the REQ `blocked: cannot fix -- <reason>` in its Notes (same marker
+     step 7 uses) so dispatch rung (a) skips it next tick instead of
+     re-discovering the identical blocker; (b) a
      human IS actively directing the pivot (asked for it, chose the
      replacement mechanism) -- edit the ADR with the new mechanism, then
      run a FRESH, EXPLICIT GATE B round on the pivoted mechanism
