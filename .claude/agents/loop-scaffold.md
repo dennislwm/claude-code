@@ -406,6 +406,18 @@ Generates, all under the wiki's `.claude/`:
      normal candidate that also flips the old ADR to `Superseded` (a
      status this template's own vocabulary already defines but a project
      may never have used) if GATE B accepts it.
+     **Rubric-coverage check.** One more mandatory stated line, same shape
+     as the Invariants line: `Rubric coverage: complete` / `Rubric
+     coverage: gap -- <this GATE A step's own requirement not yet checked
+     by the persisted verifier file's GATE-A mode>`. Compares loop.md's
+     own GATE A prose (ponytail + the referenced ADR methodology, plus any
+     project-specific sub-checks named here) against what
+     `agents/<verifier>.md`'s GATE-A mode actually checks, catching the
+     exact drift this file's own "duplicated rubric" warning above exists
+     to prevent -- loop.md growing a requirement that the persisted
+     verifier file was never updated to enforce. Non-blocking to the
+     candidate's own verdict; this checks the gate's rigor, not the
+     candidate.
    - **4. GATE B (human)** -- accept / edit / defer / reject / hold / no
      answer. PRINT the record's title, its considered options and the
      trade-off, in one sentence per field, same print-with-fallback rule as
@@ -552,6 +564,17 @@ Generates, all under the wiki's `.claude/`:
      elsewhere under a different name or shape. Verified by grepping the
      whole codebase -- not just the diff's own files -- for an existing
      instance of the same shape the diff just added.
+
+     **Rubric-coverage check.** One more mandatory stated line, same shape
+     as `Coverage`/`Duplication`: `Rubric coverage: complete` / `Rubric
+     coverage: gap -- <this GATE C step's own requirement not yet checked
+     by the persisted verifier file's GATE-C mode>`. Compares loop.md's
+     own GATE C prose (ponytail, test suite, `check-*` scaffold audit,
+     idempotency, README-doc rule, plus any project-specific sub-checks
+     named here) against what `agents/<verifier>.md`'s GATE-C mode
+     actually checks, same drift this checks for GATE A above -- loop.md
+     growing a GATE C requirement the persisted verifier file was never
+     updated to enforce. Non-blocking to the diff's own verdict.
    - **7. Fix a defect** (reached only from dispatch b). Apply the DECISION TEST
      first: if a second plausible approach can be named, STOP -- it is a
      decision, not a defect. Then write a test that FAILS against current code,

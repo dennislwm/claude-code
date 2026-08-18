@@ -178,6 +178,7 @@ Read-only scaffold audit of `../<prefix><name>`. Report without editing:
 | Makefile targets | Any CLI entry point (`__main__` block) in `app/` without a corresponding `Makefile` target; any target listed in the runner's own `help`-style output without a corresponding README mention (a target that exists but was never documented) |
 | Dependency pins | Every package in the project's dependency manifest (`Pipfile`, `package.json`, etc.) is version-pinned (`==x.y.z` or a bounded range); a bare `"*"` (or unbounded equivalent) is a gap -- an unconstrained package can silently resolve to a breaking new major/pre-release version on a fresh `install`, with no code change to point to. Give it a `Makefile`/task-runner target (e.g. `make check-pins`) per this file's Design consultations note, not a raw command. This also becomes part of GATE C automatically once the target exists, since GATE C already names `check scaffold` as one of its components. |
 | README structure | 5-point check, only when `README.md` was touched: (1) a Workflow overview near the top, tied to the actual Makefile/task-runner entry point, showing order and why, not a duplicate of the runner's own `help`-style command list; (2) one-time infra/ops setup split from day-to-day usage, pushed to the end (e.g. a "Maintainer setup" section); (3) citation/ADR/REQ links live as a small subnote under the heading, never in the heading text itself; (4) a step whose prose chains 2+ sequential actions/consequences is broken into a sub-list, not a run-on sentence; (5) a prerequisite is a one-clause `Requires: [link]` using a native anchor link, not a separate table. This is also part of GATE C, so future decision-record implementations touching `README.md` get it automatically. |
+| Checklist coverage | Whether this checklist itself still covers every top-level subsystem in `../<prefix><name>` -- flag any new top-level directory or artifact type that appeared since this checklist was last exercised and isn't captured by any row above |
 
 Output: a short report. No file edits in `../<prefix><name>`.
 
@@ -188,7 +189,11 @@ Read-only audit of an autonomous-loop setup for this project. Given
 `loop-scaffold` agent in Audit mode:
 
 > Agent(subagent_type: `loop-scaffold`, prompt: "Audit the loop at
-> `[wiki folder]/.claude/loop.md` against `[repo folder]`.")
+> `[wiki folder]/.claude/loop.md` against `[repo folder]`. Include a
+> meta-audit of the checklist itself: whether every section of `loop.md`
+> (Setup, Discover, GATE A/B/C, Cadence, Boundaries) was actually covered
+> by a checklist row, and whether `loop.md` has grown a mechanism since
+> the checklist was last exercised that no row captures.")
 
 That agent's own Audit mode owns the full checklist and the post-run
 prompt-audit step. No file edits either way.
