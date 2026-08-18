@@ -570,6 +570,23 @@ Generates, all under the wiki's `.claude/`:
      whole codebase -- not just the diff's own files -- for an existing
      instance of the same shape the diff just added.
 
+     **Simplicity check.** One more mandatory stated line, same shape as
+     `Coverage`/`Duplication`: `Simplicity: N/A` / `Simplicity: <0-3> --
+     <evidence>`. Scores only whether this diff introduced a material
+     design boundary (a new public interface, a new persistent-state
+     shape, a new cross-module dependency) without a credible alternative
+     recorded anywhere in the originating decision record or the diff
+     itself. `0` = boundary added with no alternative considered; `2`-`3`
+     = the record's Considered Options already covers it, or the diff is
+     too small to introduce one (most diffs land here -- use `N/A` when
+     nothing boundary-shaped changed). Non-blocking. This is the one gap
+     left after ponytail (SRP/reuse/dead-flexibility) and the Duplication
+     check above (single-knowledge-ownership) -- GATE A already vets a
+     decision record's own Considered Options for its accepted mechanism,
+     but nothing before this checked whether the diff itself quietly
+     introduced a second, unreviewed boundary along the way. Do not
+     re-score what ponytail or Duplication already grade.
+
      **Rubric-coverage check.** One more mandatory stated line, same shape
      as `Coverage`/`Duplication`: `Rubric coverage: complete` / `Rubric
      coverage: gap -- <this GATE C step's own requirement not yet checked
@@ -1096,6 +1113,7 @@ editing whether the loop is completely and safely configured.
 | ADR integration (if the loop produces ADRs) | Each loop-produced ADR uses the template's standard status lifecycle and is registered in `Decisions.md`; the loop does not re-propose a gap already carrying an ADR |
 | Config placement | First ask whether each repo's work branch protects anything. Branch the CODE repo: automated edits must stay off the default branch until a human merges. Do NOT branch the wiki: every write there is a reviewed artifact, not generated code, and because loop config must live on the default branch anyway, a wiki work branch forces a commit-to-default-then-merge-forward dance for every config fix -- that produced 28 merge commits in one day and two config-placement mistakes. Where a work branch does exist, `loop.md`, the verifier subagent, and any loop settings live on the default branch, not only on the branch: deleting it must not destroy the loop. Work branches carry state and work product only |
 | Terminal states | Every way the loop discards or declines work leaves a durable record where the exclusion check looks. An item discarded with no record -- or recorded only in a wipeable state file -- is rediscovered and redone |
+| Cadence | loop.md names a sole wake mechanism (a recurring `CronCreate` job) with an explicit delay, and Setup re-checks every tick that the job is still armed (`CronList`, self-heal if missing) rather than assuming a one-time arm survives -- `CronCreate` recurring jobs are session-only and expire after 7 days. The tick writes a freshness timestamp (e.g. `last_tick`) BEFORE dispatch, and the cron job's own prompt no-ops when that timestamp is still fresh, so a stray extra wake (a human `/loop wake`, a dynamic-pacing wrapper) does not double-run the tick. If the generic `/loop` skill's dynamic-pacing wrapper can also invoke this loop, loop.md says explicitly not to call `ScheduleWakeup` at tick end when cron is already armed -- a dual wake mechanism racing itself is the failure mode this row exists to catch |
 | Everything the loop records is gated | Whatever artifact the loop writes -- a decision, a defect, a requirement -- passes a gate before it is recorded. A path that writes on the producing agent's say-so will file fabrications: applying a gate retroactively to four such entries discarded one whose every assertion the code contradicted, and reframed a second |
 | Gates match the artifact | A **decision** needs verifying AND deciding: an automated gate plus a human one. A **defect** needs only verifying -- a bug is a bug, so a human gate adds nothing. Gate asymmetry is correct; identical gating for both is either too slow or too loose |
 | Fixes prove themselves | Any change the loop makes ships a check that FAILS before it and passes after. A suite that was already green proves nothing about the path it never exercised -- that is how the defect being fixed survived the tests in the first place |
