@@ -31,7 +31,7 @@ Present findings to the user and ask for confirmation in a single message:
 1. **Test framework**: "I detected [X] — confirm or override. Say 'none' to omit the test target entirely. (default: bats)"
 2. **Tools**: "I found these tools referenced in the project: [list]. Which should get `check_*`/`setup_*` entries in `make.sh`? Any tools to add that I missed?"
 3. **Symlinks**: "I found these symlinks described in the README: [list]. Should `setup` create any of them? (yes/no)"
-4. **Any other targets**: "Are there project-specific make targets beyond `help`, `setup`, `status`, `test`?"
+4. **Any other targets**: "Are there project-specific make targets beyond `help`, `setup`, `status`, `test`?" If a dependency manifest was detected in Step 2 (`Pipfile`, `package.json`, etc.): also ask "Want a `check-pins` target that fails on any unpinned dependency? (default: yes -- an unpinned package can silently resolve to a breaking version)"
 
 Do not proceed until the user answers.
 

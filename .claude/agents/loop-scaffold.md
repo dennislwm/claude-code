@@ -154,10 +154,13 @@ Generates, all under the wiki's `.claude/`:
         confirmed defect recorded as a REQ, or any other REQ this loop itself
         produced) -> fix it, LAZIEST first (fewest lines and files, not
         oldest), skipping any marked `blocked:`. Loop-surfaced means its
-        Notes carry a recorded GATE A Pass verdict -- not merely a status of
-        Open, which a human can set directly via `add req` with zero gating.
-        A pre-loop backlog item is NEVER loop-surfaced, whatever evidence it
-        carries: provenance bars it, not evidence quality, or any backlog item
+        Notes carry either a recorded GATE A Pass verdict (ADR-derived REQ)
+        or a cited, verified defect trace (confirmed-defect REQ, per step 1's
+        Defects rule below -- these skip GATE A/B entirely, a bug needs only
+        verifying, not deciding) -- not merely a status of Open, which a
+        human can set directly via `add req` with zero gating. A pre-loop
+        backlog item is NEVER loop-surfaced, whatever evidence it carries:
+        provenance bars it, not evidence quality, or any backlog item
         becomes eligible simply by being annotated later. The operator hands
         one over with an explicit `loop: take` marker in its Notes -- that
         marker and nothing else. Never hand-write a gate verdict the gate did
@@ -278,8 +281,10 @@ Generates, all under the wiki's `.claude/`:
      the cited file:line trace verifies against the code; nothing sanctions the
      behaviour or forbids the obvious fix; not already covered.
 
-     Either way: CONFIRMED -> record it. DISCARD/unverified -> record it as
-     Rejected WITH the reason; never delete, or the same non-finding is
+     Either way: CONFIRMED -> record as an Open REQ with Notes citing the
+     verified trace -- defects skip GATE A/B entirely, since a bug is a bug
+     and needs only verifying, not deciding. DISCARD/unverified -> record it
+     as Rejected WITH the reason; never delete, or the same non-finding is
      re-filed next run. REFRAME -> correct the framing, then record.
 
      STATE THE EXIT. The tick ends at steps 2-4 or step 7 -- NEVER on a recorded
@@ -659,7 +664,10 @@ Generates, all under the wiki's `.claude/`:
    as any other `.claude/` file -- see the allow-list note below.
 
 2. `agents/<verifier>.md` -- a cold grader that never implements or fixes:
-   `model`, `effort`, `tools`, `skills: ponytail`. GRANT IT `Grep` AND `Glob`,
+   `description` (one sentence stating the role -- required for the `Agent`
+   tool's `subagent_type` registry to recognize the file at all; omitting it
+   makes the role silently undispatchable even though the file looks
+   complete), `model`, `effort`, `tools`, `skills: ponytail`. GRANT IT `Grep` AND `Glob`,
    not just `Read, Bash`. An agent whose only search tool is a shell WILL chain
    (`| head`, `;`, `cd &&`, `awk` programs, a `python3` heredoc that rewrote a
    durable file by line index) -- seven prompts in one session at 13pylabel,
@@ -1079,7 +1087,7 @@ editing whether the loop is completely and safely configured.
 | Check | What to surface |
 |---|---|
 | Loop spec | `<wiki>/.claude/loop.md` exists and states: a goal, a bound on the success path (either an iteration cap with a self-stop, or a human gate that fires every iteration), a work step, an audit step that spawns the verifier, an escalation contract (what STOPS vs. what retries), and branch/secret/network boundaries |
-| Persisted subagents | For EVERY role loop.md dispatches as its own subagent call (the verifier, Discover if it does open-ended research, any future role) -- a `<wiki>/.claude/agents/*.md` exists with `model`, `effort`, `tools`, and a rubric plus an output contract; it is referenced by name in loop.md; AND every command its own rubric names exists in this file. References run both ways: a rubric saying "run this project's own check-command per this wiki's CLAUDE.md" against a wiki that never defined that command sends the verifier after something undefined on every diff, silently. An asymmetry across roles (one dispatched role externalized, another left as inline prose + an ad-hoc `Agent()` call) is itself a finding, even with no functional bug -- it means that role's tool-use discipline lives nowhere the agent reading only its own file can see it |
+| Persisted subagents | For EVERY role loop.md dispatches as its own subagent call (the verifier, Discover if it does open-ended research, any future role) -- a `<wiki>/.claude/agents/*.md` exists with `description`, `model`, `effort`, `tools`, and a rubric plus an output contract; it is referenced by name in loop.md; AND every command its own rubric names exists in this file. `description` is not cosmetic: the `Agent` tool's `subagent_type` registry will not register a file lacking it, so an omitted `description` makes the role silently undispatchable at tick time even though the file looks complete. References run both ways: a rubric saying "run this project's own check-command per this wiki's CLAUDE.md" against a wiki that never defined that command sends the verifier after something undefined on every diff, silently. An asymmetry across roles (one dispatched role externalized, another left as inline prose + an ad-hoc `Agent()` call) is itself a finding, even with no functional bug -- it means that role's tool-use discipline lives nowhere the agent reading only its own file can see it |
 | Category-tier gate | Every discovery agent has a category-tier gate section: unconditional, never omitted for any project shape. It must require the agent to state which external solution space applies to its own stack before searching, name >= 2 real alternatives from that space, allow one bounded retry, and return NOTHING (REQ-shaped) if still short after the retry. A discovery agent missing this section, or gating it behind a generation-time "if this project surveys an external space" condition, is a finding -- the condition itself was removed from the generator, so a still-conditional copy is stale, not a deliberate per-project choice |
 | State | loop.md names a loop-state location (e.g. `.claude/loop-state.json`) kept separate from human-facing files, and that file is GITIGNORED. Tracking it puts progress events in history and a merge conflict on every wake -- 47 lines of them in one day. Anything that must survive belongs in a REQ, an ADR or a commit message; if loop.md both calls the file wipeable and tracks it, that is the contradiction, not the gitignore |
 | Permissions | The allow-list covers EVERY mutation class the loop performs -- file edits and writes as well as git verbs -- or a documented decision to run interactive-only. A partial allow-list is indistinguishable from none: each uncovered call still prompts |

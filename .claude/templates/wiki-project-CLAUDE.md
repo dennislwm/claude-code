@@ -160,7 +160,10 @@ Scaffolds the sibling implementation folder (`../<prefix><name>`, code not wiki)
    already exist. If it does, stop and report.
 2. Resolve GitHub owner from this wiki repo's own `git remote -v`.
 3. Create the minimum layout: `app/`, `tests/`, `Pipfile`, `.gitignore`,
-   `README.md`. Skip domain dirs (`input/`, `output/`, `templates/`,
+   `README.md`. Pin every `Pipfile` dependency to its current latest stable
+   version (resolve via PyPI, never guess) rather than `"*"` -- otherwise
+   `check scaffold`'s Dependency pins check fails on a scaffold nobody has
+   touched yet. Skip domain dirs (`input/`, `output/`, `templates/`,
    `mappings/`) -- not implied by this project.
 4. Invoke the `make-framework` agent to generate `Makefile` + `make.sh`.
 5. Present the full folder tree + file contents for confirmation.
