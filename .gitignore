@@ -6,3 +6,4 @@ __pycache__/
 .plumb/code_coverage_map.json
 .plumb/coverage.json
 .plumb/requirements.json
+.claude/skills/simple-english/
