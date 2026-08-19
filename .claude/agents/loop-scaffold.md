@@ -363,6 +363,24 @@ Generates, all under the wiki's `.claude/`:
      title names one specific instance with no generality claim -- nothing
      to check it against.
 
+     **Second-order claims.** A first-order claim states what a cited
+     artifact IS (a key exists, a file contains X). A second-order claim
+     states what that artifact MEANS -- that it "unblocks"/"resolves"/
+     "enables" whatever it's cited for. Any section of the record
+     (Decision Drivers, Considered Options, Consequences, Decision
+     Outcome) making a second-order claim must verify it against the
+     artifact's own documented contract before Pass -- a first-order
+     claim being accurate does not make the second-order claim built on
+     it true. This check re-fires on any post-Approval correction to the
+     record too: a correction is new evidence, not a rewording exempt
+     from GATE A. One instantiation's ADR corrected a misidentified
+     search backend post-Approval, treated the corrected finding (a
+     scraped public API key) as evidence it "unblocks" implementation,
+     and that second-order claim went unverified through two Approval
+     cycles because the correction itself never re-triggered GATE A --
+     the artifact (the key) was real, but the capability claimed of it
+     (server-side search access) was not.
+
      Verdict vocabulary and the Deferred certainty test are stated ONCE,
      in section 2's `agents/<verifier>.md` generation instructions below
      -- not repeated here. A rubric detail duplicated in both loop.md's
@@ -1114,6 +1132,7 @@ editing whether the loop is completely and safely configured.
 | Config placement | First ask whether each repo's work branch protects anything. Branch the CODE repo: automated edits must stay off the default branch until a human merges. Do NOT branch the wiki: every write there is a reviewed artifact, not generated code, and because loop config must live on the default branch anyway, a wiki work branch forces a commit-to-default-then-merge-forward dance for every config fix -- that produced 28 merge commits in one day and two config-placement mistakes. Where a work branch does exist, `loop.md`, the verifier subagent, and any loop settings live on the default branch, not only on the branch: deleting it must not destroy the loop. Work branches carry state and work product only |
 | Terminal states | Every way the loop discards or declines work leaves a durable record where the exclusion check looks. An item discarded with no record -- or recorded only in a wipeable state file -- is rediscovered and redone |
 | Passed verdicts leave a mark | A GATE A/C Pass is recorded on the artifact itself (e.g. an appended `Gate A: Pass (<date>)` line) -- otherwise a later run cannot tell "passed once" from "never run" |
+| Second-order claims checked, corrections re-fire GATE A | GATE A's rubric verifies a second-order claim (an artifact "unblocks"/"resolves"/"enables" something) against the artifact's own documented contract, not just the first-order claim that the artifact exists -- and this check applies to a post-Approval correction to the record, not only its first pass |
 | Cadence | loop.md names a sole wake mechanism (a recurring `CronCreate` job) with an explicit delay, and Setup re-checks every tick that the job is still armed (`CronList`, self-heal if missing) rather than assuming a one-time arm survives -- `CronCreate` recurring jobs are session-only and expire after 7 days. The tick writes a freshness timestamp (e.g. `last_tick`) BEFORE dispatch, and the cron job's own prompt no-ops when that timestamp is still fresh, so a stray extra wake (a human `/loop wake`, a dynamic-pacing wrapper) does not double-run the tick. If the generic `/loop` skill's dynamic-pacing wrapper can also invoke this loop, loop.md says explicitly not to call `ScheduleWakeup` at tick end when cron is already armed -- a dual wake mechanism racing itself is the failure mode this row exists to catch |
 | Everything the loop records is gated | Whatever artifact the loop writes -- a decision, a defect, a requirement -- passes a gate before it is recorded. A path that writes on the producing agent's say-so will file fabrications: applying a gate retroactively to four such entries discarded one whose every assertion the code contradicted, and reframed a second |
 | Gates match the artifact | A **decision** needs verifying AND deciding: an automated gate plus a human one. A **defect** needs only verifying -- a bug is a bug, so a human gate adds nothing. Gate asymmetry is correct; identical gating for both is either too slow or too loose |
