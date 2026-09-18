@@ -8,3 +8,4 @@ __pycache__/
 .plumb/coverage.json
 .plumb/requirements.json
 .claude/skills/simple-english/
+.claude/skills/synced/
