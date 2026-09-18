@@ -311,11 +311,14 @@ Invoke the `loop-scaffold` agent in Generate mode:
 That agent owns the full generation: the mandatory discover-source question,
 `loop.md`, persisted subagents, permissions, and wire-back hooks. It will ask
 the operator directly for anything it still needs (the discover-source
-answer, the work-step definition) -- do not pre-answer on its behalf.
+answer) -- do not pre-answer on its behalf. The unit-of-work SHAPE is not one
+of those things: it is fixed by the generator's own Dispatch step (a decision
+proposed as an ADR, or a loop-surfaced REQ/defect fixed) and emitted verbatim
+every time, never a per-project choice.
 
-If `[docs/user instructions]` is not yet known, gather it first (what counts
-as a unit of work, which project documents are authoritative, which are
-stale) before invoking the agent, or let the agent ask if it comes up short.
+If `[docs/user instructions]` is not yet known, gather it first (which
+project documents are authoritative, which are stale and must be ignored)
+before invoking the agent, or let the agent ask if it comes up short.
 
 The agent finishes by running its own Audit mode against what it generated
 and must pass before handing back control.

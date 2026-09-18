@@ -21,6 +21,7 @@ Default to the current working directory. Only ask the user for a path if they h
 Before asking anything else, read the project directory to detect:
 - Language/runtime (Python, Node, Go, etc.) from files like `Pipfile`, `package.json`, `go.mod`, `requirements.txt`
 - Test framework from config files (`pytest.ini`, `jest.config.*`, `bats` test files in `tests/`) — default to bats if none found
+- Native/compiled build prerequisite from `CMakeLists.txt`, `setup.py` with `ext_modules`/`build_ext`, a `pyproject.toml` `[build-system]` naming a compiled backend, or `Cargo.toml` — a signal that tests cannot import the package until a build step runs first, not just `pip install`/`npm install`
 - CLI tools referenced in any existing scripts, config files, or `README.md` (e.g. `gh`, `pipenv`, `uvx`, `docker`, `terraform`) — scan broadly
 - Existing `Makefile` or `make.sh` (note if overwriting)
 
@@ -31,7 +32,7 @@ Present findings to the user and ask for confirmation in a single message:
 1. **Test framework**: "I detected [X] — confirm or override. Say 'none' to omit the test target entirely. (default: bats)"
 2. **Tools**: "I found these tools referenced in the project: [list]. Which should get `check_*`/`setup_*` entries in `make.sh`? Any tools to add that I missed?"
 3. **Symlinks**: "I found these symlinks described in the README: [list]. Should `setup` create any of them? (yes/no)"
-4. **Any other targets**: "Are there project-specific make targets beyond `help`, `setup`, `status`, `test`?" If a dependency manifest was detected in Step 2 (`Pipfile`, `package.json`, etc.): also ask "Want a `check-pins` target that fails on any unpinned dependency? (default: yes -- an unpinned package can silently resolve to a breaking version)"
+4. **Any other targets**: "Are there project-specific make targets beyond `help`, `setup`, `status`, `test`?" If a dependency manifest was detected in Step 2 (`Pipfile`, `package.json`, etc.): also ask "Want a `check-pins` target that fails on any unpinned dependency? (default: yes -- an unpinned package can silently resolve to a breaking version)". If a native/compiled build prerequisite was detected in Step 2: also ask "This looks like it needs a build step before tests can run ([file] detected) -- should `test` depend on a `build` target running [detected command]? (yes/no/specify a different command)" — catches a broken `test` target at scaffold time instead of on the first real test run.
 
 Do not proceed until the user answers.
 
@@ -44,7 +45,7 @@ Produce two files based on the reference patterns. Include only what the user co
 - `help` target: lists targets with column-aligned descriptions only.
 - `setup` target: calls `setup_commands` from `make.sh`
 - `status` target: calls `show_status` from `make.sh`
-- `test` target: calls `check_bats` and runs `bats tests/` (or adapted command for non-bats frameworks) — **omit entirely if the user said "none" or "no test"**
+- `test` target: calls `check_bats` and runs `bats tests/` (or adapted command for non-bats frameworks) — **omit entirely if the user said "none" or "no test"**. If a `build` target was confirmed in Step 3, `test` depends on it (`test: build`) — a one-line dependency, not a new target shape
 - Only additional targets the user explicitly requested
 
 **`make.sh`** must include:
