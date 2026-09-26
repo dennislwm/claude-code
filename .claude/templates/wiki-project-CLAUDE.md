@@ -243,9 +243,15 @@ Do not build a lockfile for this -- these two checks cost one command each.
    was skipped because the pushing account may bypass it. Not an error; the
    push is human-authorized. It is worth seeing because it is silent otherwise.
 
-4. Assert clean, do not tidy:
+4. Commit and push the wiki. GATE B/C's own convention already leaves it
+   dirty on a productive tick (`Approved`/`Rejected`/`Held` records are
+   committed there, per the wire-back rule above), so this is the normal
+   case, not an exception: `git add`/`commit`/`push` on the wiki's default
+   branch before the next step's assertion.
+
+5. Assert clean, do not tidy:
    - working tree clean in both repos
-   - default branch not ahead of its remote
+   - default branch not ahead of its remote (both repos)
 
    Do NOT delete the work branch. After a fast-forward it points at the same
    commit as the default branch, and the next tick commits onto it again.
