@@ -38,7 +38,7 @@ Requirements are tracked in `Requirements.md` as a table with columns `ID | Desc
 
 When a requirement is `Deferred`, a corresponding `## REQ-NNN` section must exist in `Deferred.md` with a detailed spec and an "Add when:" trigger condition.
 
-When a loop-driven REQ closes (`Done`/`Accepted`), compress its Notes cell to the final outcome plus a pointer to the implementing commit(s) (e.g. `see <branch>@<sha>`) instead of keeping the full verdict-by-verdict GATE history inline. This is never erasure -- the full history stays in those commits' messages, which is already the authoritative record for it. Only compress on closure: a still-open REQ keeps its full history inline, since nothing else surfaces it during dispatch or audit while it's active.
+When a loop-driven REQ closes (`Done`/`Accepted`), compress its Notes cell to the final outcome plus a pointer to the implementing commit(s) (e.g. `see <branch>@<sha>`) instead of keeping the full verdict-by-verdict GATE history inline. This is not erasure of decisions: keep accepted ceilings, unfiled findings and operator decisions inline, since commit messages do not carry the verdict history; drop only code names, counts and the verdict-by-verdict GATE narrative. Only compress on closure: a still-open REQ keeps its full history inline, since nothing else surfaces it during dispatch or audit while it's active.
 
 ### Test IDs (TST-NNN)
 
