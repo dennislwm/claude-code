@@ -638,6 +638,80 @@ Generates, all under the wiki's `.claude/`:
      changes. The first instantiation hit this and it was fixed by hand in that
      project without fixing this spec, so it propagated into the first
      generated loop.
+   - **Advice (opt-in, never a gate)** -- only if `~/.claude/skills/jev/jev.sh`
+     exists, ASK once and WAIT: "Add advisory Jev calls (step 7, discover
+     verdict, wiki drift)? default: no". No answer or no: omit this section,
+     its Boundaries exception, the `.gitignore` entry and the three rubric
+     blocks. On yes, emit an `## Advice` section before State, verbatim, with
+     `<wiki folder>` substituted. It has three points, each BEFORE the agent
+     decides; each is one Write of the state text to
+     `<wiki folder>/.claude/jev-state.txt` (add it to the wiki's `.gitignore`),
+     then one Bash call, no pipe:
+     `~/.claude/skills/jev/jev.sh choice <wiki folder>/.claude/loop.md#<rubric> <wiki folder>/.claude/jev-state.txt`.
+     - Step 7 (`#step7`): state is the requirement row and its trace,
+       verbatim. If the top class is `decision` at p >= 0.5 (placeholder, not
+       data-backed) and no second approach was named, name one (step 7's stop
+       rule then applies) or say why none exists, before repairing.
+     - Discover (`#discover`): after the discovery subagent returns a defect
+       verdict (not a decision candidate): state is the defect and its
+       EVIDENCE block, verbatim. Advice that disagrees with the verdict is
+       noted, not obeyed.
+     - Wiki drift (`#drift`): after any edit this tick to a living table
+       (requirements, conventions, deferred; decision records are
+       point-in-time and excluded), for each changed span that names a
+       code-repo file, function, test, line number, undated count or branch
+       state, the first 5 per tick (placeholder cap): state is the file, row,
+       surrounding text and the span. The advice is a second opinion; the
+       wiki's placement rule decides.
+
+     Failure contract, emitted verbatim: `unavailable (...)` output, any
+     non-zero exit, or output not readable as a class and probabilities means
+     no advice -- proceed exactly as if the call was never made. Never retry,
+     wait on or work around it; at most one call per decision point per tick.
+     Record the advice (top class, p) or `unavailable` and its reason, with
+     the decision, in the tick's state event. The rule decides, not Jev;
+     advice never lowers an escalation under Boundaries.
+
+     Then emit the three rubric blocks under a `### Rubrics` heading in that
+     section, verbatim at column 0, each fenced with the info string
+     `json rubric:<name>`. `jev.sh` reads one as `<file>.md#<name>`. They are
+     human-edited governing text in loop.md itself: no separate rubric files.
+
+     ```json rubric:step7
+     {
+       "instructions": "An open requirement is about to be fixed by a loop agent. From the requirement text and trace in state, decide what kind of item it is.",
+       "options": {
+         "defect": "exactly one plausible repair follows from the trace; no second approach can be named",
+         "decision": "a second plausible approach can be named, so choosing between them is a decision, not a repair",
+         "blocked": "the trace is too thin to repair or to frame options",
+         "other": "none of these"
+       }
+     }
+     ```
+
+     ```json rubric:discover
+     {
+       "instructions": "A discovery subagent reported a defect. From the defect and its evidence in state, decide what to do with it.",
+       "options": {
+         "confirmed": "the evidence verifies the defect exactly as stated",
+         "discarded": "the evidence does not show a defect, or the claim is unverified",
+         "reframed": "a defect exists but is framed wrongly; the evidence supports a different framing",
+         "other": "none of these"
+       }
+     }
+     ```
+
+     ```json rubric:drift
+     {
+       "instructions": "A wiki note records a decision or outcome and should stay accurate when the code repository changes without anyone editing the wiki. From the file, row and quoted span in state, decide what to do with the span.",
+       "options": {
+         "keep": "leave as written: a commit sha, a requirement or decision id, a dated measurement, an operator decision, a rationale, the name of a top-level doc or an untracked data directory",
+         "pointer": "replace with a commit sha or a requirement or decision id; it names a file, function, test, line number or current value of the code repo",
+         "delete": "remove; it is an undated count, a branch or landing state, or a detail the code or git already states",
+         "other": "none of these"
+       }
+     }
+     ```
    - **State** -- `.claude/loop-state.json`, GITIGNORED, progress events only.
      Anything that must survive belongs in a requirement, a decision record or a
      commit message. Tracking it puts progress events in history and a conflict
@@ -692,7 +766,11 @@ Generates, all under the wiki's `.claude/`:
      is the loop's grader, and they live on the default branch, so the
      work-branch boundary does not cover them. Prose-only unless the
      allow-list denies them, and a deny also blocks the operator's own
-     edits -- state which in Boundaries.
+     edits -- state which in Boundaries. If Advice was emitted, add its ONE
+     named exception: the advisory call (`~/.claude/skills/jev/jev.sh` to
+     api.typesafe.ai, key from env `TYPESAFE_API_KEY`, never read or printed),
+     made only at the points named in Advice, with state built from text of
+     the wiki and the repo.
 
    Also add `.claude/loop-state.json` to the wiki's `.gitignore`, and CREATE it
    now containing `{"last_tick": null, "progress": []}` -- `last_tick` matches
@@ -1146,7 +1224,8 @@ editing whether the loop is completely and safely configured.
 | State | loop.md names a loop-state location (e.g. `.claude/loop-state.json`) kept separate from human-facing files, and that file is GITIGNORED. Tracking it puts progress events in history and a merge conflict on every wake -- 47 lines of them in one day. Anything that must survive belongs in a REQ, an ADR or a commit message; if loop.md both calls the file wipeable and tracks it, that is the contradiction, not the gitignore |
 | Permissions | The allow-list covers EVERY mutation class the loop performs -- file edits and writes as well as git verbs -- or a documented decision to run interactive-only. A partial allow-list is indistinguishable from none: each uncovered call still prompts |
 | Tooling rules | loop.md's tooling rules match the tools actually available in the session (a rule mandating an unavailable tool stalls every iteration and forces a fallback), and forbid chained Bash -- `cd X && ...` and any `&&`, `\|\|`, `;`, or subshell join. Chaining is what defeats auto-allow: the same programs run unchained do not prompt. A pipe counts as chaining, so does `$(...)`, and so does `2>/dev/null` (which additionally hides the error that explains the failure). loop.md must also forbid editing by blind in-place regex (`sed -i`) and require the Edit tool: a regex rewrites every match at once with no diff, and one such call widened a fix across a whole file and took three more `sed` calls to undo, the last computing line ranges from a file the earlier two had already rewritten. Put these rules ABOVE the dispatch step, not in a tooling section at the end -- a rule 140 lines below the step being executed is a rule the loop has already walked past |
-| Boundaries | loop.md forbids irreversible or external actions a working branch cannot undo (push/merge to main, production API writes, secret reads, external network calls), and forbids the loop editing its own governing files (loop.md, agents/*.md, settings.json, CLAUDE.md), stating whether that is prose-only or denied in the allow-list |
+| Boundaries | loop.md forbids irreversible or external actions a working branch cannot undo (push/merge to main, production API writes, secret reads, external network calls), and forbids the loop editing its own governing files (loop.md, agents/*.md, settings.json, CLAUDE.md), stating whether that is prose-only or denied in the allow-list. An advisory external call (e.g. an API that returns probabilities for a decision) is allowed only as ONE named exception in Boundaries, at the points the loop names, never a gate, with a no-key/error path that proceeds without it. The advisory script must exit 0 with an `unavailable` line on any runtime failure, and the loop never retries it or waits on it |
+| Advisory rubrics (only if loop.md has an Advice section; otherwise N/A) | Each Advice point references an existing `loop.md#<name>` rubric block; each block's option names equal the canonical blocks in this file's Advice bullet (wording may be tuned per project); Boundaries carries the one named exception; the failure path proceeds without advice; `.claude/jev-state.txt` is gitignored |
 | ADR integration (if the loop produces ADRs) | Each loop-produced ADR uses the template's standard status lifecycle and is registered in `Decisions.md`; the loop does not re-propose a gap already carrying an ADR |
 | Config placement | First ask whether each repo's work branch protects anything. Branch the CODE repo: automated edits must stay off the default branch until a human merges. Do NOT branch the wiki: every write there is a reviewed artifact, not generated code, and because loop config must live on the default branch anyway, a wiki work branch forces a commit-to-default-then-merge-forward dance for every config fix -- that produced 28 merge commits in one day and two config-placement mistakes. Where a work branch does exist, `loop.md`, the verifier subagent, and any loop settings live on the default branch, not only on the branch: deleting it must not destroy the loop. Work branches carry state and work product only |
 | Drift check | Setup's `merge-base --is-ancestor <default-branch> <work-branch>` check exists, runs EVERY Setup (not just once), and on failure PRINTS the drift and STOPS before dispatch rather than auto-merging. This is the one guard against a human commit landing directly on the default branch outside `land loop`'s merge flow -- a finding here even if `Config placement`/`Internal consistency` look clean, since neither of those rows names this specific check |

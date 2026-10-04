@@ -91,6 +91,11 @@ Before writing anything to the wiki, place it at the first rung that fits:
   Consequences section. Only split it into a Conventions.md row if the
   workaround grows independent implementation detail someone would look up
   without reading the ADR.
+- A detail that can change without anyone editing the wiki (a code-repo
+  file, function or test name, a line number, an undated count, branch or
+  landing state) is not written into `Requirements.md`, `Conventions.md` or
+  `Deferred.md`: use a commit sha or a REQ/ADR id. Dated measurements,
+  decisions and rationale stay. ADRs are point-in-time records and are exempt.
 
 ---
 
@@ -118,7 +123,7 @@ failed to fire twice more after that, because nothing forced it to leave a
 visible trace. If the change surfaced a lesson that would help a project
 sharing none of this code, put it to ponytail. Then wire what survives now,
 while the change is still on screen: anything about the loop mechanism
-itself (Setup, Discover, GATE A/B/C, Cadence, Boundaries, or the
+itself (Setup, Discover, GATE A/B/C, Cadence, Boundaries, Advice, or the
 `create loop`/`check loop` commands that generate and audit it) goes into
 `../02claude-code/.claude/agents/loop-scaffold.md`. Every other generic
 lesson still goes into
@@ -194,7 +199,8 @@ Read-only audit of an autonomous-loop setup for this project. Given
 > Agent(subagent_type: `loop-scaffold`, prompt: "Audit the loop at
 > `[wiki folder]/.claude/loop.md` against `[repo folder]`. Include a
 > meta-audit of the checklist itself: whether every section of `loop.md`
-> (Setup, Discover, GATE A/B/C, Cadence, Boundaries) was actually covered
+> (Setup, Discover, GATE A/B/C, Cadence, Boundaries, and Advice when
+> present) was actually covered
 > by a checklist row, and whether `loop.md` has grown a mechanism since
 > the checklist was last exercised that no row captures.")
 
