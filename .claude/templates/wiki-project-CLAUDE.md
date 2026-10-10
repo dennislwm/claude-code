@@ -51,7 +51,7 @@ Tests are tracked in `Tests.md` as a table with columns `ID | Test | File | REQ 
 ADRs follow the full format defined in [playradar wiki ADR](https://github.com/<owner>/playradar/wiki/ADR):
 
 - Frontmatter: `status`, `date`, `deciders`
-- Sections: Context and Problem Statement, Decision Drivers, Considered Options (minimum two genuine mechanisms), Decision Outcome, Consequences. Status quo/no-op never counts toward this minimum and must not appear as a numbered option -- its deficiency is already the reason the ADR exists, stated in Context and Problem Statement, so re-listing it as "Option N: Status quo -- Rejected" is boilerplate, not a decision. If only one genuine mechanism exists, that means discovery/proposal isn't done yet, not that status quo may stand in as the second option.
+- Sections: Context and Problem Statement, Decision Drivers, Considered Options (minimum two genuine mechanisms; judge each option with Jev row M), Decision Outcome, Consequences. Status quo/no-op never counts toward this minimum and must not appear as a numbered option -- its deficiency is already the reason the ADR exists, stated in Context and Problem Statement, so re-listing it as "Option N: Status quo -- Rejected" is boilerplate, not a decision. If only one genuine mechanism exists, that means discovery/proposal isn't done yet, not that status quo may stand in as the second option.
 - Status values: `Proposed`, `Approved`, `Rejected`, `Accepted`, `Deprecated`, `Superseded`. `Rejected` = proposed but declined, never adopted (kept as a record of the decision). `Approved` = GATE B accepted it, not yet implemented. `Accepted` = GATE C passed after implementation -- these are two distinct states in the loop's own flow (`Proposed` -> GATE B accept -> `Approved` -> implement -> GATE C pass -> `Accepted`), not interchangeable words for the same thing. A `Proposed` record can also carry a `Held: <reason>` line (see `create loop`'s GATE B) -- this is a modifier on `Proposed`, not a sixth status value.
 - Files: `decisions/adr-NN-short-title.md`; register in `Decisions.md` index after creating
 
@@ -79,7 +79,8 @@ A frequently run command (test suite, a pipeline stage, a status check) gets a t
 
 ## Wiki artifact placement
 
-Before writing anything to the wiki, place it at the first rung that fits:
+Before writing anything to the wiki, run row P of "Jev-assisted decisions"
+below, then confirm the rung. The rungs, first that fits:
 
 1. Derivable from a single file by reading it? Don't write it anywhere. Derivable but only by cross-referencing several files, and something already reaches for that aggregation? `Implementation.md`. This applies inside an otherwise-legitimate entry too -- naming a mechanism is fine; enumerating a data file's current values in the same breath isn't, it'll drift the moment the file changes.
 2. A capability the pipeline now has or lost? `Requirements.md` note on the relevant REQ.
@@ -96,6 +97,27 @@ Before writing anything to the wiki, place it at the first rung that fits:
   landing state) is not written into `Requirements.md`, `Conventions.md` or
   `Deferred.md`: use a commit sha or a REQ/ADR id. Dated measurements,
   decisions and rationale stay. ADRs are point-in-time records and are exempt.
+
+---
+
+## Jev-assisted decisions
+
+Five judgment calls go to the `jev` skill first. Jev output is advice only:
+report the probabilities, state the decision taken, and let the existing human
+gate (placement confirmation, GATE B) decide. Standing approval: these calls
+need no confirmation. If Jev returns `unavailable`, say so and apply the
+written rule; do not retry.
+
+| ID | Decision | Shape | Options / question | Take |
+|---|---|---|---|---|
+| P | Artifact placement | choice | not written / Requirements note / Conventions row / ADR / Deferred entry | top option; ask the user if its probability is under 0.5 |
+| W | Wire-back check | choice | loop mechanism / generic template lesson / project-specific | top option; the verdict line stays |
+| A | Applicability (`sync wiki`) | noul | "has real ongoing implementation surface" | 0.5 or above is applicable |
+| S | Implementation.md triage | noul | "describes a standing system-wide guarantee" | 0.5 or above is surfaced |
+| M | ADR Considered Option | noul, once per option | "is a distinct mechanism that solves the problem, not the status quo or a no-op" | 0.5 or above counts toward the two-option minimum |
+
+State is built only from text the user pointed at; check it for secrets first.
+Option descriptions say what an option means, never evidence for it.
 
 ---
 
@@ -116,7 +138,8 @@ direct edit to a loop-governing file (`loop.md`, `agents/*.md`, this
 `CLAUDE.md`), even outside a named command.** This check must produce a
 visible verdict line every time, not a passive expectation to remember:
 state "Wire-back check: generic (propagating) / project-specific (not
-propagating) -- reason" before moving on. A silent, un-stated check is
+propagating) -- reason" before moving on; classify it with row W of
+Jev-assisted decisions. A silent, un-stated check is
 indistinguishable from a forgotten one -- the check was widened once
 already (from "command reports only" to "any direct edit") and still
 failed to fire twice more after that, because nothing forced it to leave a
@@ -142,7 +165,7 @@ Read-only scan of all wiki files. Report without editing:
 | `Tests.md` | REQs with no TST coverage; tests with `Fail` status |
 | `Conventions.md` | No triage -- static reference |
 | `Deferred.md` | Sections for REQs no longer `Deferred` status -- should be removed, with any non-duplicate rationale migrated to `Conventions.md` first |
-| `Implementation.md` | Accepted ADRs/REQs whose Decision Outcome or Consequences describe a standing, system-wide guarantee (not a one-off implementation detail) with no corresponding Implementation.md invariant entry |
+| `Implementation.md` | Accepted ADRs/REQs whose Decision Outcome or Consequences describe a standing, system-wide guarantee (not a one-off implementation detail; judge with Jev row S) with no corresponding Implementation.md invariant entry |
 
 Output: a short grouped report. No file edits.
 
@@ -279,7 +302,8 @@ the same flow. Additive only.
 
 1. **Applicability first.** Does this wiki have real ongoing implementation
    surface -- a sibling code repo, a pipeline, a spec the template's artifacts
-   would track? If not, it is a personal wiki by design: report "not
+   would track? Put it to Jev first (row A of Jev-assisted decisions). If
+   not, it is a personal wiki by design: report "not
    applicable" and stop. Template-absence is not a gap on a wiki that was never
    meant to have it, and "not applicable" is a complete, valid outcome.
 
