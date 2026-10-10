@@ -23,7 +23,6 @@ Sibling repo this wiki depends on: [<name>](https://github.com/<owner>/<name>) (
 | `Decisions.md` | Index of Architectural Decision Records (ADRs) |
 | `decisions/` | Full ADR documents in format `adr-NN-short-title.md` |
 | `Conventions.md` | Code-level and implementation decisions; flat reference table |
-| `Tests.md` | Test cases with REQ traceability and status |
 | `Deferred.md` | Detailed specs for deferred requirements; "Add when:" triggers |
 | `Implementation.md` | Stage contracts, CLI reference, data formats between stages |
 | `Home.md` | Project overview and navigation |
@@ -40,9 +39,25 @@ When a requirement is `Deferred`, a corresponding `## REQ-NNN` section must exis
 
 When a loop-driven REQ closes (`Done`/`Accepted`), compress its Notes cell to the final outcome plus a pointer to the implementing commit(s) (e.g. `see <branch>@<sha>`) instead of keeping the full verdict-by-verdict GATE history inline. This is not erasure of decisions: keep accepted ceilings, unfiled findings and operator decisions inline, since commit messages do not carry the verdict history; drop only code names, counts and the verdict-by-verdict GATE narrative. Only compress on closure: a still-open REQ keeps its full history inline, since nothing else surfaces it during dispatch or audit while it's active.
 
-### Test IDs (TST-NNN)
+### Test ladder
 
-Tests are tracked in `Tests.md` as a table with columns `ID | Test | File | REQ | Status`. Each test must link to at least one REQ. Default status for a new test is `Pending`.
+There is no `Tests.md`: the suite is the record, and tests carry no TST ids.
+Tests live in the sibling repo's `tests/` and run through its task runner's
+`test` target. Before adding a test, climb:
+
+0. Put "guards behavior that would break silently if changed" to Jev (row T,
+   advice only). It screens every test.
+1. Test only the project's own logic, as a pure function: arguments in, result
+   out. No mocks, stubs, fakes or monkeypatching. If the logic is tangled with
+   I/O, split the pure part out first. A project that must stub a third party
+   records the reason as a `Conventions.md` row.
+2. Persistent state: use a real file in a temp dir. A write that fails keeps
+   the old file, a corrupt file raises and is left as it was, and running the
+   same input twice changes nothing.
+3. A threshold: test the decision function above, at and below it.
+4. Third parties (APIs, sites, SDKs) are never tested and never faked. Test how
+   the project's code treats a missing or odd field, as plain input. A human
+   runs one real end-to-end run to confirm keys, endpoints and wiring.
 
 ---
 
@@ -102,7 +117,7 @@ below, then confirm the rung. The rungs, first that fits:
 
 ## Jev-assisted decisions
 
-Five judgment calls go to the `jev` skill first. Jev output is advice only:
+Six judgment calls go to the `jev` skill first. Jev output is advice only:
 report the probabilities, state the decision taken, and let the existing human
 gate (placement confirmation, GATE B) decide. Standing approval: these calls
 need no confirmation. If Jev returns `unavailable`, say so and apply the
@@ -115,6 +130,7 @@ written rule; do not retry.
 | A | Applicability (`sync wiki`) | noul | "has real ongoing implementation surface" | 0.5 or above is applicable |
 | S | Implementation.md triage | noul | "describes a standing system-wide guarantee" | 0.5 or above is surfaced |
 | M | ADR Considered Option | noul, once per option | "is a distinct mechanism that solves the problem, not the status quo or a no-op" | 0.5 or above counts toward the two-option minimum |
+| T | Test needed | noul, once per proposed test | "guards behavior that would break silently if changed" | strictly above 0.6 is written (operator ruling; stricter than the 0.5 rows) |
 
 State is built only from text the user pointed at; check it for secrets first.
 Option descriptions say what an option means, never evidence for it.
@@ -129,7 +145,7 @@ When `/wiki` is invoked without a recognized command, respond with:
 
 > This is the **<name>** wiki -- requirements, decisions, and test triage for <one-line project description>.
 >
-> Commands: `triage` | `add req` | `add test` | `create scaffold` | `check scaffold` | `check loop` | `create loop` | `land loop` | `sync wiki`
+> Commands: `triage` | `add req` | `create scaffold` | `check scaffold` | `check loop` | `create loop` | `land loop` | `sync wiki`
 
 Then stop. Do not run triage automatically.
 
@@ -162,7 +178,6 @@ Read-only scan of all wiki files. Report without editing:
 |---|---|
 | `Requirements.md` | Open or In Progress reqs; Deferred reqs whose "Add when:" trigger in `Deferred.md` may now be met |
 | `Decisions.md` / `decisions/` | ADRs in `Proposed` status; Accepted ADRs linked to a REQ that has since moved to Deferred |
-| `Tests.md` | REQs with no TST coverage; tests with `Fail` status |
 | `Conventions.md` | No triage -- static reference |
 | `Deferred.md` | Sections for REQs no longer `Deferred` status -- should be removed, with any non-duplicate rationale migrated to `Conventions.md` first |
 | `Implementation.md` | Accepted ADRs/REQs whose Decision Outcome or Consequences describe a standing, system-wide guarantee (not a one-off implementation detail; judge with Jev row S) with no corresponding Implementation.md invariant entry |
@@ -174,11 +189,6 @@ Output: a short grouped report. No file edits.
 1. Prompt for: description, initial status, notes (optional).
 2. Append a new row to `Requirements.md` using the next available REQ-NNN.
 3. If status is `Deferred`: also create a `## REQ-NNN` stub in `Deferred.md` with placeholder spec and "Add when:" line.
-
-### `add test`
-
-1. Prompt for: test description, linked REQ-NNN, file path.
-2. Append a new row to `Tests.md` using the next available TST-NNN with status `Pending`.
 
 ### `create scaffold`
 
@@ -328,7 +338,7 @@ the same flow. Additive only.
    state, not drift. Adapt canonical wording to this project's paths, stack and
    vocabulary rather than pasting it verbatim.
 
-5. **Writes `CLAUDE.md` only.** Never creates `Requirements.md`, `Tests.md`,
+5. **Writes `CLAUDE.md` only.** Never creates `Requirements.md`,
    `Decisions.md` or any other artifact -- those come into existence on their
    own triggers, per the wiki-structure rules above.
 
