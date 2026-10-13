@@ -556,7 +556,9 @@ Generates, all under the wiki's `.claude/`:
      function (arguments in, result out); no mocks, stubs, fakes or
      monkeypatching; if the logic is tangled with I/O, split the pure part
      out first; a project that must stub a third party records the reason
-     as a `Conventions.md` row. (2) Persistent state: a real store in a
+     as a `Conventions.md` row; a UI or integration test is allowed only to
+     prove the wiring of an already pure-tested function, never the logic
+     itself. (2) Persistent state: a real store in a
      temp location; a failed write keeps the old state, a corrupt value
      raises and is left as it was, the same input twice changes nothing.
      (3) A threshold: test the decision function above, at and below it.
