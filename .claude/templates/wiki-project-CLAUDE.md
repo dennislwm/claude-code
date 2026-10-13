@@ -43,21 +43,10 @@ When a loop-driven REQ closes (`Done`/`Accepted`), compress its Notes cell to th
 
 There is no `Tests.md`: the suite is the record, and tests carry no TST ids.
 Tests live in the sibling repo's `tests/` and run through its task runner's
-`test` target. Before adding a test, climb:
-
-0. Put "guards behavior that would break silently if changed" to Jev (row T,
-   advice only). It screens every test.
-1. Test only the project's own logic, as a pure function: arguments in, result
-   out. No mocks, stubs, fakes or monkeypatching. If the logic is tangled with
-   I/O, split the pure part out first. A project that must stub a third party
-   records the reason as a `Conventions.md` row.
-2. Persistent state: use a real file in a temp dir. A write that fails keeps
-   the old file, a corrupt file raises and is left as it was, and running the
-   same input twice changes nothing.
-3. A threshold: test the decision function above, at and below it.
-4. Third parties (APIs, sites, SDKs) are never tested and never faked. Test how
-   the project's code treats a missing or odd field, as plain input. A human
-   runs one real end-to-end run to confirm keys, endpoints and wiring.
+`test` target. The rungs a test must climb live in `.claude/loop.md` GATE C,
+where the verifier grades them on every diff (a project without a loop applies
+the same rungs by hand: see `loop-scaffold.md`'s GATE C "Test ladder" step).
+Apply them when adding a test in a live session too.
 
 ---
 

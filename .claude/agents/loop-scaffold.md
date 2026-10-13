@@ -546,6 +546,31 @@ Generates, all under the wiki's `.claude/`:
      implementation -- `Approved` is that state, `Accepted` means GATE C
      already passed.
 
+     **Test ladder.** Tests live in the sibling repo's test directory and
+     run through its task runner's `test` target. The work step climbs
+     these rungs before writing a test; the verifier grades every test the
+     diff adds or changes against them, in order. (0) Does the test guard
+     behavior that would break silently if changed? Judged by reading the
+     diff, with Jev row T when available; a test that guards nothing is
+     non-blocking. (1) Test only the project's own logic, as a pure
+     function (arguments in, result out); no mocks, stubs, fakes or
+     monkeypatching; if the logic is tangled with I/O, split the pure part
+     out first; a project that must stub a third party records the reason
+     as a `Conventions.md` row. (2) Persistent state: a real store in a
+     temp location; a failed write keeps the old state, a corrupt value
+     raises and is left as it was, the same input twice changes nothing.
+     (3) A threshold: test the decision function above, at and below it.
+     (4) Third parties are never tested and never faked; test how the
+     project's code treats a missing or odd field, as plain input, and a
+     human runs one real end-to-end run to confirm wiring. A violation of
+     rung 1, 2, 3 or 4 is blocking, same severity as a missing idempotency
+     test. One more mandatory stated line, same shape as `Invariants`:
+     `Test ladder: pass` / `Test ladder: n/a -- no test in diff` / `Test
+     ladder: VIOLATION -- <rung>, <test>`. The rungs live in loop.md only;
+     the persisted verifier file points at them by reference, never a copy,
+     so the two cannot drift. Rationale: the ladder used to be CLAUDE.md
+     prose with no trigger, so nothing graded a test against it.
+
      **Invariants check, same `Implementation.md` section as GATE A above,
      if it exists.** One more mandatory stated line: `Invariants: no
      change` / `Invariants: new invariant found -- <name>` / `Invariants:
@@ -618,7 +643,7 @@ Generates, all under the wiki's `.claude/`:
      coverage: gap -- <this GATE C step's own requirement not yet checked
      by the persisted verifier file's GATE-C mode>`. Compares loop.md's
      own GATE C prose (ponytail, test suite, `check-*` scaffold audit,
-     idempotency, README-doc rule, plus any project-specific sub-checks
+     idempotency, README-doc rule, Test ladder, plus any project-specific sub-checks
      named here) against what `agents/<verifier>.md`'s GATE-C mode
      actually checks, same drift this checks for GATE A above -- loop.md
      growing a GATE C requirement the persisted verifier file was never
