@@ -488,10 +488,21 @@ Generates, all under the wiki's `.claude/`:
      friendliness / reliability / idempotency / risks / dependencies /
      future-proofing / maintainability / costs / benefits / performance /
      UI-reactivity / public issues research / library maturity / active
-     maintenance / official-package status) before deciding?" Yes -> invoke
-     the `i-have-adhd` skill (if installed; otherwise just answer plainly)
-     and run the comparison inline, one pass per option, in that format.
-     Otherwise -> skip, no wasted research. Additive list -- append axes as
+     maintenance / official-package status) before deciding?" Yes -> score
+     each option on each axis with the `jev` skill's `score` shape (if
+     installed; otherwise run the comparison inline, one pass per option, via
+     `i-have-adhd` or plainly), one call per option per axis (call cost is
+     not a constraint), and record the result in the ADR as an "Option
+     comparison" table: axis, one score per option, confidence per option.
+     State is built only from the ADR text and code facts already verified
+     in Decision Drivers; level descriptions state a concrete situation,
+     never evidence for an option. Skip an axis that does not apply (say
+     which) rather than scoring it. Under the table: the unweighted mean per
+     option, and a caveats line naming every score with confidence under
+     0.2. The scores are advice; GATE B's Accept stays human, and the mean
+     is never a verdict. Print the table with `i-have-adhd` formatting
+     (table, one-line read, next action). Otherwise -> skip, no wasted
+     research. Additive list -- append axes as
      a project's own operator asks for new ones over time, never remove one
      already asked for.
 
