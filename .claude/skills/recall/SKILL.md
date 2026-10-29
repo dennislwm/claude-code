@@ -9,7 +9,7 @@ Run: `bash ~/.claude/skills/recall/recall.sh [-s sibling]... [-r] [--ext rst,py]
 
 - The current folder is always searched. `-s NAME` adds a sibling folder; repeat it for more.
 - `-r` reuses the folders and extensions from the last `-s` call in this folder.
-- With no query it prints help.
+- With no query it prints help. Show it to the user verbatim in your reply.
 - First use on a device installs bm25s (about 200 MB) and takes about a minute.
 - The index rebuilds itself when files are added, changed or deleted.
 
