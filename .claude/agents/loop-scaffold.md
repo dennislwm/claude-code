@@ -832,7 +832,8 @@ Generates, all under the wiki's `.claude/`:
    `description` (one sentence stating the role -- required for the `Agent`
    tool's `subagent_type` registry to recognize the file at all; omitting it
    makes the role silently undispatchable even though the file looks
-   complete), `model`, `effort`, `tools`, `skills: ponytail`. GRANT IT `Grep` AND `Glob`,
+   complete), `model`, `effort`, `tools`, `skills` as a list: `ponytail`,
+   `recall`, `why`. GRANT IT `Grep` AND `Glob`,
    not just `Read, Bash`. An agent whose only search tool is a shell WILL chain
    (`| head`, `;`, `cd &&`, `awk` programs, a `python3` heredoc that rewrote a
    durable file by line index) -- seven prompts in one session at 13pylabel,
@@ -855,6 +856,17 @@ Generates, all under the wiki's `.claude/`:
    defect claim); a body listing fewer than the description sends it after a
    rubric it has no definition for. Rubric = ponytail + the wiki placement
    ladder + objective passes (tests, this project's own `check-*` audit).
+   For a decision record the rubric also carries a Why check, GATE A only: the
+   grader picks the ONE least-verified claim in the record's Decision Drivers,
+   opens its cited source, and states one line, always: `Why: <claim> --
+   verified` / `Why: <claim> -- wrong, <what the source says>` / `Why:
+   <claim> -- unverified, <why no check was possible>`. `wrong` is a Revise
+   finding; `unverified` is non-blocking.
+   Before concluding that a defect claim or decision record is "not already
+   covered", the grader runs `recall` over the wiki and the sibling precedent
+   wiki (`bash <abs path>/recall.sh -s <sibling wiki> "<claim keywords>"` from
+   the wiki root), because a name grep misses differently worded duplicates.
+   Allow-list that script too, or every grading run prompts.
    Every command the rubric names must exist in the wiki's CLAUDE.md --
    references run both ways.
    State in the rubric which EVIDENCE BASE ponytail's rung 1 judges against: for
@@ -983,6 +995,7 @@ Generates, all under the wiki's `.claude/`:
          "Bash(<test command with its env prefix> *)",
          "Bash(<test runner> *)",
          "Bash(make test*)",
+         "Bash(bash <abs path to recall.sh> *)",
          "Bash(git status *)",
          "Bash(git log *)",
          "Bash(git diff *)",
