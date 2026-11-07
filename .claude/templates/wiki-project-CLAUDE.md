@@ -134,7 +134,7 @@ When `/wiki` is invoked without a recognized command, respond with:
 
 > This is the **<name>** wiki -- requirements, decisions, and test triage for <one-line project description>.
 >
-> Commands: `triage` | `add req` | `create scaffold` | `check scaffold` | `check loop` | `create loop` | `land loop` | `sync wiki`
+> Commands: `triage` | `add req` | `create scaffold` | `check scaffold` | `check loop` | `create loop` | `loop once` | `land loop` | `sync wiki`
 
 Then stop. Do not run triage automatically.
 
@@ -229,6 +229,13 @@ Read-only audit of an autonomous-loop setup for this project. Given
 That agent's own Audit mode owns the full checklist and the post-run
 prompt-audit step. No file edits either way.
 
+### `loop once`
+
+Runs exactly one tick of `.claude/loop.md` (Setup through its exit), then
+stops. It arms no recurring cron job and does not reschedule itself;
+Setup's cron self-heal is skipped. Report the dispatch rung taken, the gate
+verdicts, and what waits on the human.
+
 ### `land loop`
 
 Lands verified loop work: merges the sibling repo's work branch into its
@@ -237,10 +244,15 @@ default branch and pushes. Human-triggered -- the loop never calls this, and
 
 **Refuse to start if the loop may still be running.** Two free signals, either
 one is enough to stop:
-- the wiki or `../<prefix><name>` has an unclean working tree
-- `.claude/loop-state.json` was modified more recently than the wake cadence
-  (`find <wiki>/.claude/loop-state.json -mmin -<cadence in minutes>`; macOS
-  `find` rejects `-newermt` with a relative offset, ISO 8601 only)
+- `../<prefix><name>` has an unclean working tree (the wiki is not checked
+  here: step 4 commits it)
+- a tick is in flight: `.claude/loop-state.json`'s `last_tick` is set and its
+  `last_tick_end` is null, absent or earlier
+  (`jq -r '.last_tick, .last_tick_end' <wiki>/.claude/loop-state.json`; ISO 8601
+  UTC strings compare in order)
+
+A tick that died without writing `last_tick_end` reads as in flight until the
+operator sets that field to the current time by hand.
 
 A shared checkout with two agents in it produces branch switches mid-command.
 Do not build a lockfile for this -- these two checks cost one command each.
@@ -265,6 +277,10 @@ Do not build a lockfile for this -- these two checks cost one command each.
 
 3. Push the default branch.
 
+   Push with `git -C <repo> push origin <default branch>`, here and in step 4;
+   plain `git push` and `cd <repo> && git push` match a bare `Bash(git push*)`
+   deny.
+
    If the push output mentions bypassing a rule (e.g. GitHub's
    `remote: Bypassed rule violations for refs/heads/main`), record that in the
    report. It means a protection rule -- usually a pull-request requirement --
@@ -273,9 +289,12 @@ Do not build a lockfile for this -- these two checks cost one command each.
 
 4. Commit and push the wiki. GATE B/C's own convention already leaves it
    dirty on a productive tick (`Approved`/`Rejected`/`Held` records are
-   committed there, per the wire-back rule above), so this is the normal
-   case, not an exception: `git add`/`commit`/`push` on the wiki's default
-   branch before the next step's assertion.
+   committed there, per the wire-back rule above; a `Proposed` record parked
+   at GATE B is not), so this is the normal case, not an exception:
+   `git add`/`commit`/`push` on the wiki's default branch before the next
+   step's assertion. Stage only loop records (`decisions/`, `mockups/`,
+   `Decisions.md`, `Requirements.md`, `Implementation.md`); stop and report if
+   anything else is dirty.
 
 5. Assert clean, do not tidy:
    - working tree clean in both repos
@@ -289,9 +308,10 @@ Output: a short report -- what merged, test result, whether a rule was
 bypassed, clean-state assertions. No file edits.
 
 Deliberately absent: a ponytail review pass (GATE C already applies the
-ponytail rubric to every diff the loop produces) and a commit step (the loop
-commits its own work; anything uncommitted at `land loop` time is the
-loop-may-be-running signal firing, not work for `land loop` to finish).
+ponytail rubric to every diff the loop produces) and a commit step for the
+code repo (the loop commits its own work; anything uncommitted in
+`../<prefix><name>` at `land loop` time is the loop-may-be-running signal
+firing, not work for `land loop` to finish).
 
 ### `sync wiki`
 

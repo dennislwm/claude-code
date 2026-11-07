@@ -130,7 +130,8 @@ Generates, all under the wiki's `.claude/`:
      with zero fallback protection this way -- the gap went undetected
      until a human noticed autonomous wakeups had silently stopped. A
      mechanism that must be remembered into existence each session is not
-     a fallback.
+     a fallback. A one-shot tick (a `loop once` command) skips this
+     self-heal and arms no job.
    - **Each iteration -- 0. BEFORE dispatch**, print any decision record still
      in the Proposed state: title, considered options, the trade-off. Printing
      is not a unit of work and never consumes the tick. Proposed means GATE B is
@@ -780,6 +781,11 @@ Generates, all under the wiki's `.claude/`:
      seconds ago -> a tick already began this period, no-op and stop (the
      next firing picks up any real work); otherwise -> run the tick now.
 
+     At the END of every tick, on every exit path, also write a last-tick-end
+     timestamp. A tick is in flight when the last-tick timestamp is set and
+     the end timestamp is null, absent or earlier. A land command reads this
+     pair, not the state file's modification time.
+
      No primary/fallback split, no re-arming -- one recurring job is the
      whole mechanism. `CronCreate`'s recurring jobs auto-expire after 7
      days -- re-arm once if that's ever hit.
@@ -811,7 +817,8 @@ Generates, all under the wiki's `.claude/`:
      the wiki and the repo.
 
    Also add `.claude/loop-state.json` to the wiki's `.gitignore`, and CREATE it
-   now containing `{"last_tick": null, "progress": []}` -- `last_tick` matches
+   now containing `{"last_tick": null, "last_tick_end": null, "progress": []}`
+   -- `last_tick` matches
    the field the Cadence section's fallback-cron freshness check reads;
    omitting it from the stub leaves the file shaped differently from what
    Cadence expects until the first real tick happens to overwrite it.
@@ -1103,7 +1110,9 @@ Generates, all under the wiki's `.claude/`:
      the loop's own safety boundary -- there is no autonomous wiki-push
      behavior to protect against. Keep the bare `Bash(git push*)` entry
      (harmless, matches nothing once every real command uses `-C <path>`)
-     and drop just the wiki-path-scoped one.
+     and drop just the wiki-path-scoped one. A land command must push with
+     `git -C <path> push origin <branch>`; plain `git push` and
+     `cd <path> && git push` match the bare entry.
    - **Three entries are stack-specific** (the test command, its runner, and
      `make test`). Swap them for your stack's equivalents; if unsure, add
      yours alongside rather than replacing.
@@ -1283,7 +1292,7 @@ editing whether the loop is completely and safely configured.
 | Terminal states | Every way the loop discards or declines work leaves a durable record where the exclusion check looks. An item discarded with no record -- or recorded only in a wipeable state file -- is rediscovered and redone |
 | Passed verdicts leave a mark | A GATE A/C Pass is recorded on the artifact itself (e.g. an appended `Gate A: Pass (<date>)` line) -- otherwise a later run cannot tell "passed once" from "never run" |
 | Second-order claims checked, corrections re-fire GATE A | GATE A's rubric verifies a second-order claim (an artifact "unblocks"/"resolves"/"enables" something) against the artifact's own documented contract, not just the first-order claim that the artifact exists -- and this check applies to a post-Approval correction to the record, not only its first pass |
-| Cadence | loop.md names a sole wake mechanism (a recurring `CronCreate` job) with an explicit delay, and Setup re-checks every tick that the job is still armed (`CronList`, self-heal if missing) rather than assuming a one-time arm survives -- `CronCreate` recurring jobs are session-only and expire after 7 days. The tick writes a freshness timestamp (e.g. `last_tick`) BEFORE dispatch, and the cron job's own prompt no-ops when that timestamp is still fresh, so a stray extra wake (a human `/loop wake`, a dynamic-pacing wrapper) does not double-run the tick. If the generic `/loop` skill's dynamic-pacing wrapper can also invoke this loop, loop.md says explicitly not to call `ScheduleWakeup` at tick end when cron is already armed -- a dual wake mechanism racing itself is the failure mode this row exists to catch |
+| Cadence | loop.md names a sole wake mechanism (a recurring `CronCreate` job) with an explicit delay, and Setup re-checks every tick that the job is still armed (`CronList`, self-heal if missing) rather than assuming a one-time arm survives -- `CronCreate` recurring jobs are session-only and expire after 7 days. The tick writes a freshness timestamp (e.g. `last_tick`) BEFORE dispatch, and the cron job's own prompt no-ops when that timestamp is still fresh, so a stray extra wake (a human `/loop wake`, a dynamic-pacing wrapper) does not double-run the tick. The tick also writes an end timestamp on EVERY exit path. If the generic `/loop` skill's dynamic-pacing wrapper can also invoke this loop, loop.md says explicitly not to call `ScheduleWakeup` at tick end when cron is already armed -- a dual wake mechanism racing itself is the failure mode this row exists to catch |
 | Everything the loop records is gated | Whatever artifact the loop writes -- a decision, a defect, a requirement -- passes a gate before it is recorded. A path that writes on the producing agent's say-so will file fabrications: applying a gate retroactively to four such entries discarded one whose every assertion the code contradicted, and reframed a second |
 | Gates match the artifact | A **decision** needs verifying AND deciding: an automated gate plus a human one. A **defect** needs only verifying -- a bug is a bug, so a human gate adds nothing. Gate asymmetry is correct; identical gating for both is either too slow or too loose |
 | Fixes prove themselves | Any change the loop makes ships a check that FAILS before it and passes after. A suite that was already green proves nothing about the path it never exercised -- that is how the defect being fixed survived the tests in the first place |
