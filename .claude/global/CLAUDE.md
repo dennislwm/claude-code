@@ -14,4 +14,6 @@
 ## Design consultations
 When presenting options or making choices, apply this ladder first and label the winner before showing alternatives: (1) does this need to exist at all? (2) already in this codebase? (3) stdlib? (4) native platform feature? (5) already-installed dependency? (6) can it be one line? (7) only then: minimum code that works. Never list options as neutral -- pick one. Never ask "A or B?" -- that forces the user to do evaluation work you should have done.
 
+When a question offers choices, put each option's full text in that same message (the user may not see tool results), label the recommended one, state Jev's pick with its probabilities, and shape the message with the i-have-adhd skill.
+
 Before proposing an implementation approach, next step, design choice, or test plan, invoke the `ponytail:ponytail` skill (if installed) to get the lazy/minimal framing first, then present that to the user -- don't reason through the ladder silently and only invoke ponytail when asked. If the skill isn't available, apply the ladder above directly instead.
