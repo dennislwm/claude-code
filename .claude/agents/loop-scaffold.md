@@ -468,7 +468,19 @@ Generates, all under the wiki's `.claude/`:
        ADR-NN's status to `Superseded` and update `Implementation.md`'s
        invariant entry to match the new mechanism, same tick, no separate
        gate -- the human's Accept on this record IS the decision to
-       supersede the old one, not a second question.
+       supersede the old one, not a second question. Then run **GATE R**
+       on the filed REQ, same tick, before Implement: the verifier grades
+       the REQ's text only (never code) against the accepted option and,
+       when the project has UI, its mock. One lesson behind it: GATE A
+       grades the ADR and GATE C grades the diff, so without GATE R nothing
+       grades the REQ between them. A REQ that dropped the mock path made
+       GATE C's mock-versus-diff check never run, and a mock element was
+       never built. Same Reject / Revise / Pass vocabulary as GATE A. Revise
+       -> edit the REQ once and re-run. Reject -> append findings verbatim
+       to the REQ's Notes under `GATE R:`, mark it `blocked:`, leave the
+       ADR `Approved`, STOP. Pass -> record `GATE R: Pass` in the REQ's
+       Notes; dispatch's "loop-surfaced" test then requires both GATE A and
+       GATE R Pass for an ADR-derived REQ.
      - Edit -> apply the changes; re-run GATE A; Pass -> `Approved`.
      - Defer -> add a `Deferred.md` entry with an "Add when" trigger and erase
        the ADR; the deferral entry is the record, not the ADR file.
@@ -964,6 +976,17 @@ Generates, all under the wiki's `.claude/`:
    -- only the first is covered by the existing Decision Driver review
    above. BLOCKING: an unverified or negative answer here is a
    Revise/Reject finding, same severity as a missing mock.
+
+   **GATE R rubric** (the verifier's fourth artifact kind: an ADR-derived
+   REQ). Grades the REQ text only. State three lines, always: `Option:
+   <option> -- mirrored` / `Option: -- drops <element>`; `Mock cited:
+   <path>` / `Mock cited: none, option has no UI` / `Mock cited: missing`;
+   `Mock elements: covered` / `Mock elements: <element> not in REQ`. The
+   verifier lists the mock's visible elements itself; a "New:" note in the
+   mock is not a reliable marker, most mocks have none. Skip the two mock
+   lines when the project has no UI surface. BLOCKING: a missing mock
+   citation on a UI-bearing option, or an uncovered mock element. The
+   verifier never edits the REQ.
 
    Output contract: a `Permission prompts: none` / `Permission prompts: <call>
    -- <why>` line FIRST -- before its work is done, the agent checks whether
