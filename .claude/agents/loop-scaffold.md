@@ -558,14 +558,36 @@ Generates, all under the wiki's `.claude/`:
      implementation -- `Approved` is that state, `Accepted` means GATE C
      already passed.
 
+     **Code ladder.** The work step climbs these rungs before writing code
+     (not tests); the verifier grades every diff that adds or changes code
+     against them, in order. (1) Does this need to exist? A speculative
+     need is skipped. (2) Already in this codebase? Reuse it; a
+     near-duplicate is extended with a parameter, never copied, and the
+     Duplication check grades this rung. (3) The standard library does it?
+     Use it. (4) A native platform feature covers it? Use it. (5) An
+     already-installed dependency solves it? Use it; never add one for what
+     a few lines can do. (6) Can it be one line? One line. (7) Only then
+     the minimum code that works; a class is justified only when it owns
+     state or a lifecycle, anything else stays a function. A finding is
+     non-blocking. One more mandatory stated line, same shape as
+     `Invariants`: `Code ladder: pass` / `Code ladder: n/a -- no code in
+     diff` / `Code ladder: finding -- <rung>, <site>`. The rungs live in
+     loop.md only; the persisted verifier file points at them by
+     reference, never a copy.
+
      **Test ladder.** Tests live in the sibling repo's test directory and
      run through its task runner's `test` target. The work step climbs
      these rungs before writing a test; the verifier grades every test the
-     diff adds or changes against them, in order. (0) Does the test guard
-     behavior that would break silently if changed? Judged by reading the
-     diff, with Jev row T when available; a test that guards nothing is
-     non-blocking. (1) Test only the project's own logic, as a pure
-     function (arguments in, result out); no mocks, stubs, fakes or
+     diff adds or changes against them, in order. (0) Why does the test need
+     to exist? (a) New path: run the task runner's coverage target with
+     and without the test and compare hit lines and taken branches in the
+     source tree; (b) distinct claim: the verifier states the test's one
+     claim and runs the `why` check on it against the nearest test calling
+     the same function, answered by reading both; the tick passes the
+     answer and test source to Jev row T, and without Jev the `why` answer
+     decides. A test passes on either; neither is a non-blocking finding
+     recommending review. Idempotency and rung 2/3 tests are exempt. (1) Test only the project's own logic, as a
+     pure function (arguments in, result out); no mocks, stubs, fakes or
      monkeypatching; if the logic is tangled with I/O, split the pure part
      out first; a project that must stub a third party records the reason
      as a `Conventions.md` row; a UI or integration test is allowed only to
@@ -576,11 +598,17 @@ Generates, all under the wiki's `.claude/`:
      (3) A threshold: test the decision function above, at and below it.
      (4) Third parties are never tested and never faked; test how the
      project's code treats a missing or odd field, as plain input, and a
-     human runs one real end-to-end run to confirm wiring. A violation of
-     rung 1, 2, 3 or 4 is blocking, same severity as a missing idempotency
-     test. One more mandatory stated line, same shape as `Invariants`:
-     `Test ladder: pass` / `Test ladder: n/a -- no test in diff` / `Test
-     ladder: VIOLATION -- <rung>, <test>`. The rungs live in loop.md only;
+     human runs one real end-to-end run to confirm wiring. (5) Reuse before
+     writing: before adding a test helper, fixture or setup block, search
+     the test directory for the same name or shape; a second copy is a
+     non-blocking finding, fixed by extending the first with a parameter; a
+     class is justified only when it owns state or a lifecycle, otherwise a
+     function stays a function. A violation of rung 1, 2, 3 or 4 is
+     blocking, same severity as a missing idempotency test. One more
+     mandatory stated line, same shape as `Invariants`: `Test ladder: pass`
+     / `Test ladder: n/a -- no test in diff` / `Test ladder: VIOLATION --
+     <rung>, <test>`, plus a non-blocking `Test reuse: none` / `Test reuse:
+     repeats <file: name>` line for rung 5. The rungs live in loop.md only;
      the persisted verifier file points at them by reference, never a copy,
      so the two cannot drift. Rationale: the ladder used to be CLAUDE.md
      prose with no trigger, so nothing graded a test against it.
