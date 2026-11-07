@@ -1253,8 +1253,9 @@ doc/code disagreements made that rule unsatisfiable overnight, and neither
 `blocked:` exit fitted a one-line comment fix. Scope it: a failing test is
 required for a change to CODE, while a doc-only fix ships without one -- the
 diff is the check and GATE C still grades it, ponytail being GATE C's rubric and
-already holding that trivial one-liners need no test. Re-read the fix step
-whenever the source changes.
+already holding that trivial one-liners need no test. The other way to keep the fix step satisfiable: keep
+wiki-document defects out of the source's DEFECTS and fix them in place.
+Re-read the fix step whenever the source changes.
 
 Decide where demand comes from before tuning anything else (the rule lives with
 the question this mode asks, above); gates were straightforward by comparison.
