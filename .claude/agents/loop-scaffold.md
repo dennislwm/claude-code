@@ -563,7 +563,8 @@ Generates, all under the wiki's `.claude/`:
      caught up) before this check was added here.
      Reject -> leave the ADR `Approved`, STOP, surface findings -- do not
      revert it to `Proposed`, the decision itself still stands, only this
-     implementation attempt failed. Revise -> fix once. Pass -> flip the ADR
+     implementation attempt failed. Revise -> fix, then re-run GATE C; up to
+     twice per tick, shared with in-place Coverage fixes. Pass -> flip the ADR
      to `Accepted` and update `Decisions.md`. This is the ONLY step that
      produces the `Accepted` status: nothing before implementation should
      ever use that word for a record still awaiting or undergoing
@@ -610,17 +611,24 @@ Generates, all under the wiki's `.claude/`:
      (3) A threshold: test the decision function above, at and below it.
      (4) Third parties are never tested and never faked; test how the
      project's code treats a missing or odd field, as plain input, and a
-     human runs one real end-to-end run to confirm wiring. (5) Reuse before
-     writing: before adding a test helper, fixture or setup block, search
+     human runs one real end-to-end run to confirm wiring. (5) Never loosen
+     an existing test's assertion to get green: when a change makes an
+     existing test fail, fix the code, or tighten the test's finder to the
+     thing it was written to check; the verifier compares the diff's changed
+     assertions against their parents, and a weaker one (a wider matcher, a
+     dropped `expect`) is blocking. One instantiation widened a finder from
+     exactly-one to any-number so a new element would not break it, and the
+     test then no longer proved what it was written to prove. (6) Reuse
+     before writing: before adding a test helper, fixture or setup block, search
      the test directory for the same name or shape; a second copy is a
      non-blocking finding, fixed by extending the first with a parameter; a
      class is justified only when it owns state or a lifecycle, otherwise a
-     function stays a function. A violation of rung 1, 2, 3 or 4 is
+     function stays a function. A violation of rung 1, 2, 3, 4 or 5 is
      blocking, same severity as a missing idempotency test. One more
      mandatory stated line, same shape as `Invariants`: `Test ladder: pass`
      / `Test ladder: n/a -- no test in diff` / `Test ladder: VIOLATION --
      <rung>, <test>`, plus a non-blocking `Test reuse: none` / `Test reuse:
-     repeats <file: name>` line for rung 5. The rungs live in loop.md only;
+     repeats <file: name>` line for rung 6. The rungs live in loop.md only;
      the persisted verifier file points at them by reference, never a copy,
      so the two cannot drift. Rationale: the ladder used to be CLAUDE.md
      prose with no trigger, so nothing graded a test against it.
@@ -654,14 +662,20 @@ Generates, all under the wiki's `.claude/`:
      mock file (see Propose's mock-for-UI-bearing-options rule above),
      this includes checking whether the diff's actual UI matches it, a
      mock being a literal expression of what the accepted option
-     promised. Non-blocking -- a coverage gap
-     does not invalidate the current REQ's own Pass; on `gap found`, the
-     TICK (not the verifier) files the new REQ immediately (status Open,
-     Notes citing both the ADR and this REQ), same tick, no extra gate,
-     since GATE C's own trace already verified the gap the same way a
-     defect claim would be verified. Also PRINT the new REQ's number and
-     one-line description at tick end, same as the Invariants check's own
-     new-invariant print.
+     promised. A gap that is filed, not fixed, does not invalidate the
+     current REQ's own Pass. On `gap found`, the TICK (not the verifier)
+     fixes it in place when ANY ONE holds: (1) it is a mismatch against
+     this REQ's own text or its cited mock; (2) the tick has confirmed from
+     the code or data that it is real; (3) the fix stays in files this diff
+     already touched. A fix is a Revise: GATE C re-runs on the new diff,
+     because the fixed code was never graded. When none holds, when the gap
+     still stands after the revise budget, or when it needs operator input,
+     file the new REQ immediately (status Open, Notes citing both the ADR
+     and this REQ), same tick, no extra gate. State the outcome: `Coverage:
+     gap found -- fixed in place (test N)` or `-- filed REQ-NNN`. Also
+     PRINT any new REQ's number and one-line description, and any in-place
+     fix, at tick end, same as the Invariants check's own new-invariant
+     print.
 
      **Duplication check.** One more mandatory stated line, same shape as
      `Coverage`: `Duplication: none found` / `Duplication: repeats
