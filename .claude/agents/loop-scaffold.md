@@ -623,7 +623,12 @@ Generates, all under the wiki's `.claude/`:
      the test directory for the same name or shape; a second copy is a
      non-blocking finding, fixed by extending the first with a parameter; a
      class is justified only when it owns state or a lifecycle, otherwise a
-     function stays a function. A violation of rung 1, 2, 3, 4 or 5 is
+     function stays a function. (7) A test the diff adds or changes must
+     not name a key from a config the operator may edit; it uses a fixture
+     config in the shared test helper file, so an allowed config edit breaks
+     no test; the verifier lists the committed config files the code reads,
+     greps the changed tests for the keys they declare and reads each hit.
+     A violation of rung 1, 2, 3, 4, 5 or 7 is
      blocking, same severity as a missing idempotency test. One more
      mandatory stated line, same shape as `Invariants`: `Test ladder: pass`
      / `Test ladder: n/a -- no test in diff` / `Test ladder: VIOLATION --
