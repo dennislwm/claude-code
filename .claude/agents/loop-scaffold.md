@@ -624,11 +624,15 @@ Generates, all under the wiki's `.claude/`:
      non-blocking finding, fixed by extending the first with a parameter; a
      class is justified only when it owns state or a lifecycle, otherwise a
      function stays a function. (7) A test the diff adds or changes must
-     not name a key from a config the operator may edit; it uses a fixture
-     config in the shared test helper file, so an allowed config edit breaks
-     no test; the verifier lists the committed config files the code reads,
-     greps the changed tests for the keys they declare and reads each hit.
-     A violation of rung 1, 2, 3, 4, 5 or 7 is
+     not depend on the content of a config the operator may edit (its
+     entries, their types or values, or anything derived from them); it
+     takes what it needs from the same source the code reads, or from a
+     fixture config in the shared test helper file, so an allowed edit breaks
+     no test; a test that supplies its own entries as input is exempt; if no
+     entry of a needed kind exists, the test skips with a visible message,
+     never a silent pass; the verifier lists the committed config files the
+     code reads, greps the changed tests for the entries they declare, and
+     reads each hit. A violation of rung 1, 2, 3, 4, 5 or 7 is
      blocking, same severity as a missing idempotency test. One more
      mandatory stated line, same shape as `Invariants`: `Test ladder: pass`
      / `Test ladder: n/a -- no test in diff` / `Test ladder: VIOLATION --
