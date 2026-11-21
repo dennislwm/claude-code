@@ -1030,6 +1030,12 @@ Generates, all under the wiki's `.claude/`:
    output-formatting skills in the rubric: the verifier reports to the loop, not
    to a human, and the block format is answer-first by construction.
 
+   EVERY persisted subagent's `skills` list names each skill its body or a
+   brief it receives (e.g. a `RESEARCH:` brief) tells it to invoke:
+   `ponytail`, `jev`, `why`. Preloading adds the skill text only, not the
+   `Skill` tool or the `Bash` path the skill runs: check `tools` and the
+   allow-list too.
+
    EVERY persisted subagent this section generates (this verifier, and
    Discover's own file if externalized above) opens its body with the same
    permission-awareness paragraph, before any other instruction:
